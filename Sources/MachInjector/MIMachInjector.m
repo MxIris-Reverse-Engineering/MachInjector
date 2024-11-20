@@ -1,10 +1,3 @@
-//
-//  MIMachInjector.m
-//  MachInjector
-//
-//  Created by JH on 2024/11/19.
-//
-
 #import "MIMachInjector.h"
 #include <Cocoa/Cocoa.h>
 #include <mach/mach.h>

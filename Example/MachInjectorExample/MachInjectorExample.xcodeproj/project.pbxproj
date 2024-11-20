@@ -1,0 +1,502 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		E919E5142CEDE66A009B4B01 /* MachInjectorUI in Frameworks */ = {isa = PBXBuildFile; productRef = E919E5132CEDE66A009B4B01 /* MachInjectorUI */; };
+		E919E5222CEDE943009B4B01 /* MachInjector in Frameworks */ = {isa = PBXBuildFile; productRef = E919E5212CEDE943009B4B01 /* MachInjector */; };
+		E919E5252CEDF35B009B4B01 /* ApplicationsWrapper in Frameworks */ = {isa = PBXBuildFile; productRef = E919E5242CEDF35B009B4B01 /* ApplicationsWrapper */; };
+		E919E5282CEDF4F6009B4B01 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = E919E5262CEDF4F6009B4B01 /* main.swift */; };
+		E919E5302CEDF4FE009B4B01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E919E52A2CEDF4FE009B4B01 /* Assets.xcassets */; };
+		E919E5312CEDF4FE009B4B01 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = E919E52D2CEDF4FE009B4B01 /* Main.storyboard */; };
+		E919E5322CEDF4FE009B4B01 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E919E5292CEDF4FE009B4B01 /* AppDelegate.swift */; };
+		E919E5332CEDF4FE009B4B01 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E919E52E2CEDF4FE009B4B01 /* ViewController.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		E919E5172CEDE90C009B4B01 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		E919E4CC2CED73D6009B4B01 /* MachInjectorExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MachInjectorExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E919E5192CEDE90C009B4B01 /* com.machinjector.example.injectd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = com.machinjector.example.injectd; sourceTree = BUILT_PRODUCTS_DIR; };
+		E919E5262CEDF4F6009B4B01 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		E919E5292CEDF4FE009B4B01 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		E919E52A2CEDF4FE009B4B01 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		E919E52B2CEDF4FE009B4B01 /* MachInjectorExample.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MachInjectorExample.entitlements; sourceTree = "<group>"; };
+		E919E52C2CEDF4FE009B4B01 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
+		E919E52E2CEDF4FE009B4B01 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		E919E4C92CED73D6009B4B01 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E919E5142CEDE66A009B4B01 /* MachInjectorUI in Frameworks */,
+				E919E5252CEDF35B009B4B01 /* ApplicationsWrapper in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E919E5162CEDE90C009B4B01 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E919E5222CEDE943009B4B01 /* MachInjector in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		E919E4C32CED73D6009B4B01 = {
+			isa = PBXGroup;
+			children = (
+				E919E52F2CEDF4FE009B4B01 /* MachInjectorExample */,
+				E919E5272CEDF4F6009B4B01 /* Injectd */,
+				E919E5202CEDE943009B4B01 /* Frameworks */,
+				E919E4CD2CED73D6009B4B01 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		E919E4CD2CED73D6009B4B01 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				E919E4CC2CED73D6009B4B01 /* MachInjectorExample.app */,
+				E919E5192CEDE90C009B4B01 /* com.machinjector.example.injectd */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		E919E5202CEDE943009B4B01 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		E919E5272CEDF4F6009B4B01 /* Injectd */ = {
+			isa = PBXGroup;
+			children = (
+				E919E5262CEDF4F6009B4B01 /* main.swift */,
+			);
+			path = Injectd;
+			sourceTree = "<group>";
+		};
+		E919E52F2CEDF4FE009B4B01 /* MachInjectorExample */ = {
+			isa = PBXGroup;
+			children = (
+				E919E5292CEDF4FE009B4B01 /* AppDelegate.swift */,
+				E919E52A2CEDF4FE009B4B01 /* Assets.xcassets */,
+				E919E52B2CEDF4FE009B4B01 /* MachInjectorExample.entitlements */,
+				E919E52D2CEDF4FE009B4B01 /* Main.storyboard */,
+				E919E52E2CEDF4FE009B4B01 /* ViewController.swift */,
+			);
+			path = MachInjectorExample;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		E919E4CB2CED73D6009B4B01 /* MachInjectorExample */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E919E4DB2CED73D7009B4B01 /* Build configuration list for PBXNativeTarget "MachInjectorExample" */;
+			buildPhases = (
+				E919E4C82CED73D6009B4B01 /* Sources */,
+				E919E4C92CED73D6009B4B01 /* Frameworks */,
+				E919E4CA2CED73D6009B4B01 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MachInjectorExample;
+			packageProductDependencies = (
+				E919E5132CEDE66A009B4B01 /* MachInjectorUI */,
+				E919E5242CEDF35B009B4B01 /* ApplicationsWrapper */,
+			);
+			productName = MachInjectorExample;
+			productReference = E919E4CC2CED73D6009B4B01 /* MachInjectorExample.app */;
+			productType = "com.apple.product-type.application";
+		};
+		E919E5182CEDE90C009B4B01 /* com.machinjector.example.injectd */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E919E51D2CEDE90C009B4B01 /* Build configuration list for PBXNativeTarget "com.machinjector.example.injectd" */;
+			buildPhases = (
+				E919E5152CEDE90C009B4B01 /* Sources */,
+				E919E5162CEDE90C009B4B01 /* Frameworks */,
+				E919E5172CEDE90C009B4B01 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = com.machinjector.example.injectd;
+			packageProductDependencies = (
+				E919E5212CEDE943009B4B01 /* MachInjector */,
+			);
+			productName = com.machinjector.example.injectd;
+			productReference = E919E5192CEDE90C009B4B01 /* com.machinjector.example.injectd */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		E919E4C42CED73D6009B4B01 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1610;
+				LastUpgradeCheck = 1610;
+				TargetAttributes = {
+					E919E4CB2CED73D6009B4B01 = {
+						CreatedOnToolsVersion = 16.1;
+					};
+					E919E5182CEDE90C009B4B01 = {
+						CreatedOnToolsVersion = 16.1;
+					};
+				};
+			};
+			buildConfigurationList = E919E4C72CED73D6009B4B01 /* Build configuration list for PBXProject "MachInjectorExample" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = E919E4C32CED73D6009B4B01;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				E919E5102CEDE66A009B4B01 /* XCLocalSwiftPackageReference "../../../MachInjector" */,
+				E919E5232CEDF35B009B4B01 /* XCRemoteSwiftPackageReference "PrivateKits" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = E919E4CD2CED73D6009B4B01 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				E919E4CB2CED73D6009B4B01 /* MachInjectorExample */,
+				E919E5182CEDE90C009B4B01 /* com.machinjector.example.injectd */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		E919E4CA2CED73D6009B4B01 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E919E5302CEDF4FE009B4B01 /* Assets.xcassets in Resources */,
+				E919E5312CEDF4FE009B4B01 /* Main.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		E919E4C82CED73D6009B4B01 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E919E5322CEDF4FE009B4B01 /* AppDelegate.swift in Sources */,
+				E919E5332CEDF4FE009B4B01 /* ViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E919E5152CEDE90C009B4B01 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E919E5282CEDF4F6009B4B01 /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		E919E52D2CEDF4FE009B4B01 /* Main.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				E919E52C2CEDF4FE009B4B01 /* Base */,
+			);
+			name = Main.storyboard;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		E919E4D92CED73D7009B4B01 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.1;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		E919E4DA2CED73D7009B4B01 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.1;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		E919E4DC2CED73D7009B4B01 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = MachInjectorExample/MachInjectorExample.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = D5Q73692VW;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMainStoryboardFile = Main;
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.JH.MachInjectorExample;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		E919E4DD2CED73D7009B4B01 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = MachInjectorExample/MachInjectorExample.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = D5Q73692VW;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMainStoryboardFile = Main;
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.JH.MachInjectorExample;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		E919E51E2CEDE90C009B4B01 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = D5Q73692VW;
+				ENABLE_HARDENED_RUNTIME = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		E919E51F2CEDE90C009B4B01 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = D5Q73692VW;
+				ENABLE_HARDENED_RUNTIME = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		E919E4C72CED73D6009B4B01 /* Build configuration list for PBXProject "MachInjectorExample" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E919E4D92CED73D7009B4B01 /* Debug */,
+				E919E4DA2CED73D7009B4B01 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E919E4DB2CED73D7009B4B01 /* Build configuration list for PBXNativeTarget "MachInjectorExample" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E919E4DC2CED73D7009B4B01 /* Debug */,
+				E919E4DD2CED73D7009B4B01 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E919E51D2CEDE90C009B4B01 /* Build configuration list for PBXNativeTarget "com.machinjector.example.injectd" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E919E51E2CEDE90C009B4B01 /* Debug */,
+				E919E51F2CEDE90C009B4B01 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		E919E5102CEDE66A009B4B01 /* XCLocalSwiftPackageReference "../../../MachInjector" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../../../MachInjector;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		E919E5232CEDF35B009B4B01 /* XCRemoteSwiftPackageReference "PrivateKits" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/NSAntoine/PrivateKits";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		E919E5132CEDE66A009B4B01 /* MachInjectorUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MachInjectorUI;
+		};
+		E919E5212CEDE943009B4B01 /* MachInjector */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E919E5102CEDE66A009B4B01 /* XCLocalSwiftPackageReference "../../../MachInjector" */;
+			productName = MachInjector;
+		};
+		E919E5242CEDF35B009B4B01 /* ApplicationsWrapper */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E919E5232CEDF35B009B4B01 /* XCRemoteSwiftPackageReference "PrivateKits" */;
+			productName = ApplicationsWrapper;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = E919E4C42CED73D6009B4B01 /* Project object */;
+}

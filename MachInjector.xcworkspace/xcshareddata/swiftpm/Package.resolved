@@ -1,0 +1,15 @@
+{
+  "originHash" : "577df3c187a1fd373068cb7d20270f95b08cef032d26e8ab42a769e2022e2ad2",
+  "pins" : [
+    {
+      "identity" : "privatekits",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/NSAntoine/PrivateKits",
+      "state" : {
+        "branch" : "main",
+        "revision" : "e64e411eb83e73e00c6faae8711c5b01c13985a1"
+      }
+    }
+  ],
+  "version" : 3
+}
