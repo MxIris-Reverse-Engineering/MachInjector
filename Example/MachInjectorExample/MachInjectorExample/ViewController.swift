@@ -7,7 +7,6 @@
 
 import AppKit
 import MachInjectorUI
-import ApplicationsWrapper
 
 class ViewController: NSViewController {
     override func viewDidLoad() {
@@ -40,7 +39,6 @@ extension ViewController: RunningApplicationPickerViewController.Delegate {
     func runningApplicationPickerViewController(_ viewController: MachInjectorUI.RunningApplicationPickerViewController, didSelectApplication application: NSRunningApplication) {}
 
     func runningApplicationPickerViewController(_ viewController: MachInjectorUI.RunningApplicationPickerViewController, didConfirmApplication application: NSRunningApplication) {
-        print(LSApplicationProxy(forIdentifier: application.bundleIdentifier!).isContainerized)
     }
 
     func runningApplicationPickerViewControllerWasCancel(_ viewController: MachInjectorUI.RunningApplicationPickerViewController) {}

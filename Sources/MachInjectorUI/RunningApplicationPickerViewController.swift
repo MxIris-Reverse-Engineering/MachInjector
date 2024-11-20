@@ -1,4 +1,5 @@
 import AppKit
+import LaunchServicesPrivate
 
 public final class RunningApplicationPickerViewController: NSViewController {
     public struct Configuration {
@@ -15,7 +16,7 @@ public final class RunningApplicationPickerViewController: NSViewController {
             self.cancelButtonTitle = cancelButtonTitle ?? "Cancel"
             self.confirmButtonTitle = submitButtonTitle ?? "Confirm"
             self.rowHeight = rowHeight ?? 25
-            self.allowsColumns = allowsColumns ?? [.icon, .name, .bundleIdentifier, .pid, .architecture]
+            self.allowsColumns = allowsColumns ?? [.icon, .name, .bundleIdentifier, .pid, .architecture, .sandboxed]
             self.cellSpacing = cellSpacing ?? .init(width: 0, height: 10)
         }
     }
@@ -33,6 +34,7 @@ public final class RunningApplicationPickerViewController: NSViewController {
         case bundleIdentifier
         case pid
         case architecture
+        case sandboxed
 
         var title: String {
             switch self {
@@ -46,6 +48,8 @@ public final class RunningApplicationPickerViewController: NSViewController {
                 "PID"
             case .architecture:
                 "Arch"
+            case .sandboxed:
+                "Sandboxed"
             }
         }
 
@@ -61,6 +65,8 @@ public final class RunningApplicationPickerViewController: NSViewController {
                 50
             case .architecture:
                 50
+            case .sandboxed:
+                70
             }
         }
 
@@ -76,6 +82,8 @@ public final class RunningApplicationPickerViewController: NSViewController {
                 50
             case .architecture:
                 50
+            case .sandboxed:
+                70
             }
         }
 
@@ -91,6 +99,8 @@ public final class RunningApplicationPickerViewController: NSViewController {
                 50
             case .architecture:
                 50
+            case .sandboxed:
+                70
             }
         }
     }
@@ -152,6 +162,11 @@ public final class RunningApplicationPickerViewController: NSViewController {
             case .architecture:
                 return tableView.makeView(ofClass: LabelCellView.self) {
                     $0.string = runningApplication.architecture.description
+                }
+            case .sandboxed:
+                return tableView.makeView(ofClass: IconCellView.self) {
+                    $0.image = runningApplication.isSandboxed ? .checkmarkImage : .xmarkImage
+                    $0.tintColor = runningApplication.isSandboxed ? .systemGreen : .systemRed
                 }
             }
         }
@@ -246,6 +261,9 @@ public final class RunningApplicationPickerViewController: NSViewController {
         tableView.tableColumns.forEach { tableView.removeTableColumn($0) }
         for column in columns ?? configuration.allowsColumns {
             let tableColumn = NSTableColumn(identifier: .init(column.rawValue))
+            if column == .sandboxed {
+                tableColumn.headerCell.alignment = .center
+            }
             tableColumn.title = column.title
             tableColumn.width = column.preferredWidth
             if let minWidth = column.minWidth {
@@ -282,14 +300,32 @@ public final class RunningApplicationPickerViewController: NSViewController {
         tableView.intercellSpacing = configuration.cellSpacing
         setupColumns(configuration.allowsColumns)
     }
-    
+
     deinit {
         print("\(Self.self) deinit")
     }
 }
 
 extension RunningApplicationPickerViewController {
-    private class IconCellView: NSTableCellView {
+    private class CellView: NSTableCellView {
+        override init(frame frameRect: NSRect) {
+            super.init(frame: frameRect)
+        }
+
+        @available(*, unavailable)
+        required init?(coder: NSCoder) {
+            fatalError("init(coder:) has not been implemented")
+        }
+    }
+
+    private class IconCellView: CellView {
+        
+        var tintColor: NSColor? {
+            didSet {
+                iconImageView.contentTintColor = tintColor
+            }
+        }
+        
         var image: NSImage? {
             didSet {
                 iconImageView.image = image
@@ -309,14 +345,9 @@ extension RunningApplicationPickerViewController {
                 iconImageView.widthAnchor.constraint(equalTo: heightAnchor),
             ])
         }
-
-        @available(*, unavailable)
-        required init?(coder: NSCoder) {
-            fatalError("init(coder:) has not been implemented")
-        }
     }
 
-    private class LabelCellView: NSTableCellView {
+    private class LabelCellView: CellView {
         var string: String? {
             didSet {
                 label.stringValue = string ?? ""
@@ -345,10 +376,31 @@ extension RunningApplicationPickerViewController {
                 label.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor),
             ])
         }
+    }
 
-        @available(*, unavailable)
-        required init?(coder: NSCoder) {
-            fatalError("init(coder:) has not been implemented")
+    private class CheckboxCellView: CellView {
+        public var isChecked: Bool = false {
+            didSet {
+                checkbox.state = isChecked ? .on : .off
+            }
+        }
+
+        public var isEnabled: Bool = false {
+            didSet {
+                checkbox.isEnabled = isEnabled
+            }
+        }
+
+        private let checkbox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
+        
+        override init(frame frameRect: NSRect) {
+            super.init(frame: frameRect)
+            addSubview(checkbox)
+            checkbox.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                checkbox.centerYAnchor.constraint(equalTo: centerYAnchor),
+                checkbox.centerXAnchor.constraint(equalTo: centerXAnchor),
+            ])
         }
     }
 }
@@ -420,4 +472,20 @@ extension NSRunningApplication {
             return .unknown
         }
     }
+
+    var applicationProxy: LSApplicationProxy? {
+        guard let bundleIdentifier else { return nil }
+        return LSApplicationProxy(forIdentifier: bundleIdentifier)
+    }
+    
+    var isSandboxed: Bool {
+        guard let entitlements = applicationProxy?.entitlements else { return false }
+        guard let isSandboxed = entitlements["com.apple.security.app-sandbox"] as? Bool else { return false }
+        return isSandboxed
+    }
+}
+
+extension NSImage {
+    static let checkmarkImage = NSImage(systemSymbolName: "checkmark.circle", accessibilityDescription: nil)
+    static let xmarkImage = NSImage(systemSymbolName: "xmark.circle", accessibilityDescription: nil)
 }

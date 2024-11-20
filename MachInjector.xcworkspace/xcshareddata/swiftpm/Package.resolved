@@ -1,13 +1,13 @@
 {
-  "originHash" : "577df3c187a1fd373068cb7d20270f95b08cef032d26e8ab42a769e2022e2ad2",
+  "originHash" : "6794d82862b27e0f60e8ee04c9fc685d056c30f3647ba9f15ae6870c7293ffd6",
   "pins" : [
     {
-      "identity" : "privatekits",
+      "identity" : "launchservicesprivate",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/NSAntoine/PrivateKits",
+      "location" : "https://github.com/MxIris-Reverse-Engineering/LaunchServicesPrivate",
       "state" : {
         "branch" : "main",
-        "revision" : "e64e411eb83e73e00c6faae8711c5b01c13985a1"
+        "revision" : "43f86091bdc665253af8bdef517258b51916e438"
       }
     }
   ],

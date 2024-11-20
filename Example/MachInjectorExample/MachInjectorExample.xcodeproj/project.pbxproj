@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		E919E5142CEDE66A009B4B01 /* MachInjectorUI in Frameworks */ = {isa = PBXBuildFile; productRef = E919E5132CEDE66A009B4B01 /* MachInjectorUI */; };
 		E919E5222CEDE943009B4B01 /* MachInjector in Frameworks */ = {isa = PBXBuildFile; productRef = E919E5212CEDE943009B4B01 /* MachInjector */; };
-		E919E5252CEDF35B009B4B01 /* ApplicationsWrapper in Frameworks */ = {isa = PBXBuildFile; productRef = E919E5242CEDF35B009B4B01 /* ApplicationsWrapper */; };
 		E919E5282CEDF4F6009B4B01 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = E919E5262CEDF4F6009B4B01 /* main.swift */; };
 		E919E5302CEDF4FE009B4B01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E919E52A2CEDF4FE009B4B01 /* Assets.xcassets */; };
 		E919E5312CEDF4FE009B4B01 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = E919E52D2CEDF4FE009B4B01 /* Main.storyboard */; };
@@ -46,7 +45,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				E919E5142CEDE66A009B4B01 /* MachInjectorUI in Frameworks */,
-				E919E5252CEDF35B009B4B01 /* ApplicationsWrapper in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -125,7 +123,6 @@
 			name = MachInjectorExample;
 			packageProductDependencies = (
 				E919E5132CEDE66A009B4B01 /* MachInjectorUI */,
-				E919E5242CEDF35B009B4B01 /* ApplicationsWrapper */,
 			);
 			productName = MachInjectorExample;
 			productReference = E919E4CC2CED73D6009B4B01 /* MachInjectorExample.app */;
@@ -180,7 +177,6 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				E919E5102CEDE66A009B4B01 /* XCLocalSwiftPackageReference "../../../MachInjector" */,
-				E919E5232CEDF35B009B4B01 /* XCRemoteSwiftPackageReference "PrivateKits" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E919E4CD2CED73D6009B4B01 /* Products */;
@@ -470,17 +466,6 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		E919E5232CEDF35B009B4B01 /* XCRemoteSwiftPackageReference "PrivateKits" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/NSAntoine/PrivateKits";
-			requirement = {
-				branch = main;
-				kind = branch;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
 /* Begin XCSwiftPackageProductDependency section */
 		E919E5132CEDE66A009B4B01 /* MachInjectorUI */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -490,11 +475,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E919E5102CEDE66A009B4B01 /* XCLocalSwiftPackageReference "../../../MachInjector" */;
 			productName = MachInjector;
-		};
-		E919E5242CEDF35B009B4B01 /* ApplicationsWrapper */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = E919E5232CEDF35B009B4B01 /* XCRemoteSwiftPackageReference "PrivateKits" */;
-			productName = ApplicationsWrapper;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
