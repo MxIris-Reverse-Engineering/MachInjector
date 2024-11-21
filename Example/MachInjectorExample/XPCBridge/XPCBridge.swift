@@ -27,15 +27,16 @@ public struct MachInjectError: Error, Codable {
     }
 }
 
-
 public struct PingRequest: Codable {
     public init() {}
 }
 
-public typealias PingResponse = Result<RequestSuccess, Never>
-
+public typealias PingResponse = Result<RequestSuccess, PingError>
 
 public struct RequestSuccess: Codable {}
+
+public struct PingError: Codable, Error {}
+
 private enum ResultCodingKeys: String, CodingKey {
     case success
     case failure
@@ -75,4 +76,19 @@ extension Result: @retroactive Codable where Success: Codable, Failure: Codable 
             )
         }
     }
+}
+
+@objc
+public protocol MachInjectHost {}
+
+@objc
+public protocol MachInjectService {
+    @objc func inject(pid: pid_t, dylibPath: String, with reply: @escaping (Error?) -> Void)
+    @objc func ping(with reply: @escaping () -> Void)
+}
+
+
+public enum MachInjectIdentifiers {
+    public static let inject = "MachInject.inject"
+    public static let ping = "MachInject.ping"
 }

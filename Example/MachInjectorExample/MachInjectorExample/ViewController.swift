@@ -13,7 +13,7 @@ import MachInjectorUI
 class ViewController: NSViewController {
     var pid: pid_t?
 
-    var serviceController: MachInjectServiceController?
+    var hostDelegate: MachInjectHostDelegate?
 
     var dylibPath: String?
 
@@ -37,16 +37,16 @@ class ViewController: NSViewController {
         let result = openPanel.runModal()
         guard result == .OK else { return }
         guard let url = openPanel.urls.first else { return }
-        dylibPath = url.path()
+        dylibPath = url.path
     }
 
     @IBAction func injectAction(_ sender: Any) {
-        guard let pid, let dylibPath, let serviceController else {
+        guard let pid, let dylibPath, let hostDelegate else {
             return
         }
         Task {
             do {
-                try await serviceController.inject(pid: pid, dylibPath: dylibPath)
+                try await hostDelegate.inject(pid: pid, dylibPath: dylibPath)
                 print("Inject success")
             } catch {
                 NSAlert(error: error).runModal()
@@ -56,12 +56,13 @@ class ViewController: NSViewController {
 
     @IBAction func connectMachServiceAction(_ sender: Any) {
         do {
-            try serviceController = MachInjectServiceController()
+            hostDelegate = try MachInjectHostDelegate()
             print("Connect success")
         } catch {
             NSAlert(error: error).runModal()
         }
     }
+
     @IBAction func installMachServiceAction(_ sender: Any) {
         do {
             try HelperInstaller.install()
@@ -70,10 +71,11 @@ class ViewController: NSViewController {
             NSAlert(error: error).runModal()
         }
     }
+
     @IBAction func pingAction(_ sender: Any) {
         Task {
             do {
-                try await serviceController?.ping()
+                try await hostDelegate?.ping()
                 print("Ping success")
             } catch {
                 NSAlert(error: error).runModal()
@@ -94,67 +96,4 @@ extension ViewController: RunningApplicationPickerViewController.Delegate {
     }
 
     func runningApplicationPickerViewControllerWasCancel(_ viewController: MachInjectorUI.RunningApplicationPickerViewController) {}
-}
-
-class MachInjectServiceController {
-    let session: XPCSession
-
-    deinit {
-        session.cancel(reason: "Terminate")
-    }
-    
-    init() throws {
-        self.session = try .init(machService: machService, options: .privileged)
-//        try session.activate()
-    }
-
-    func inject(pid: pid_t, dylibPath: String) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            do {
-                try session.send(MachInjectRequest(pid: pid, dylibPath: dylibPath)) { (result: Result<MachInjectResponse, Error>) in
-                    switch result {
-                    case let .success(innerResult):
-                        switch innerResult {
-                        case .success:
-                            continuation.resume()
-                        case .failure(let error):
-                            continuation.resume(throwing: error)
-                        }
-                    case let .failure(error):
-                        continuation.resume(throwing: error)
-                    }
-                }
-            } catch {
-                continuation.resume(throwing: error)
-            }
-        }
-    }
-    
-    func ping() async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            do {
-                try session.send(PingRequest()) { (result: Result<XPCReceivedMessage, XPCRichError>) in
-                    do {
-                        switch result {
-                        case .success(let message):
-                            let result = try message.decode(as: PingResponse.self)
-                            switch result {
-                            case .success:
-                                continuation.resume()
-                            case let .failure(error):
-                                continuation.resume(throwing: error)
-                            }
-                        case .failure(let failure):
-                            continuation.resume(throwing: failure)
-                        }
-
-                    } catch {
-                        continuation.resume(throwing: error)
-                    }
-                }
-            } catch {
-                continuation.resume(throwing: error)
-            }
-        }
-    }
 }

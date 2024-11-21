@@ -8,13 +8,11 @@
 
 /* Begin PBXBuildFile section */
 		E919E5142CEDE66A009B4B01 /* MachInjectorUI in Frameworks */ = {isa = PBXBuildFile; productRef = E919E5132CEDE66A009B4B01 /* MachInjectorUI */; };
-		E919E5222CEDE943009B4B01 /* MachInjector in Frameworks */ = {isa = PBXBuildFile; productRef = E919E5212CEDE943009B4B01 /* MachInjector */; };
 		E919E5282CEDF4F6009B4B01 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = E919E5262CEDF4F6009B4B01 /* main.swift */; };
 		E919E5302CEDF4FE009B4B01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E919E52A2CEDF4FE009B4B01 /* Assets.xcassets */; };
 		E919E5312CEDF4FE009B4B01 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = E919E52D2CEDF4FE009B4B01 /* Main.storyboard */; };
 		E919E5322CEDF4FE009B4B01 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E919E5292CEDF4FE009B4B01 /* AppDelegate.swift */; };
 		E919E5332CEDF4FE009B4B01 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E919E52E2CEDF4FE009B4B01 /* ViewController.swift */; };
-		E957BC0B2CEECB7C0021E76F /* LaunchServicesPrivate in Frameworks */ = {isa = PBXBuildFile; productRef = E957BC0A2CEECB7C0021E76F /* LaunchServicesPrivate */; };
 		E957BC172CEECBA90021E76F /* XPCBridge.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E957BC112CEECBA90021E76F /* XPCBridge.framework */; };
 		E957BC182CEECBA90021E76F /* XPCBridge.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = E957BC112CEECBA90021E76F /* XPCBridge.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		E957BC202CEECF2A0021E76F /* XPCBridge.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E957BC112CEECBA90021E76F /* XPCBridge.framework */; };
@@ -23,6 +21,11 @@
 		E957BC4B2CEF07CA0021E76F /* XPCBridge.h in Headers */ = {isa = PBXBuildFile; fileRef = E957BC472CEF07CA0021E76F /* XPCBridge.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		E957BC522CEF1FB70021E76F /* com.machinjector.example.injectd in Embed LaunchServices */ = {isa = PBXBuildFile; fileRef = E919E5192CEDE90C009B4B01 /* com.machinjector.example.injectd */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		E957BC562CEF1FE10021E76F /* HelperInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = E957BC552CEF1FE10021E76F /* HelperInstaller.swift */; };
+		E9668FFE2CEF8D8D007B344A /* MachInjector in Frameworks */ = {isa = PBXBuildFile; productRef = E9668FFD2CEF8D8D007B344A /* MachInjector */; };
+		E96CB4B82CEF970100C3DE77 /* SwiftyXPC in Frameworks */ = {isa = PBXBuildFile; productRef = E96CB4B72CEF970100C3DE77 /* SwiftyXPC */; };
+		E96CB4BB2CEF971700C3DE77 /* LaunchServicesPrivate in Frameworks */ = {isa = PBXBuildFile; productRef = E96CB4BA2CEF971700C3DE77 /* LaunchServicesPrivate */; };
+		E96CB4BD2CEF972C00C3DE77 /* SwiftyXPC in Frameworks */ = {isa = PBXBuildFile; productRef = E96CB4BC2CEF972C00C3DE77 /* SwiftyXPC */; };
+		E96CB4BF2CEF973C00C3DE77 /* MachInjectHostDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E96CB4BE2CEF973C00C3DE77 /* MachInjectHostDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -50,15 +53,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		E919E5172CEDE90C009B4B01 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
-			dstSubfolderSpec = 0;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
 		E957BC1D2CEECBA90021E76F /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -106,9 +100,12 @@
 		E957BC112CEECBA90021E76F /* XPCBridge.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = XPCBridge.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		E957BC472CEF07CA0021E76F /* XPCBridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = XPCBridge.h; sourceTree = "<group>"; };
 		E957BC482CEF07CA0021E76F /* XPCBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XPCBridge.swift; sourceTree = "<group>"; };
-		E957BC4C2CEF18D50021E76F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		E957BC4C2CEF18D50021E76F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		E957BC4D2CEF1DA50021E76F /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
 		E957BC552CEF1FE10021E76F /* HelperInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperInstaller.swift; sourceTree = "<group>"; };
+		E9668FF92CEF6EB6007B344A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		E9668FFA2CEF6EB6007B344A /* launchd.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = launchd.plist; sourceTree = "<group>"; };
+		E96CB4BE2CEF973C00C3DE77 /* MachInjectHostDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachInjectHostDelegate.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -118,6 +115,7 @@
 			files = (
 				E919E5142CEDE66A009B4B01 /* MachInjectorUI in Frameworks */,
 				E957BC172CEECBA90021E76F /* XPCBridge.framework in Frameworks */,
+				E96CB4B82CEF970100C3DE77 /* SwiftyXPC in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -125,9 +123,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E919E5222CEDE943009B4B01 /* MachInjector in Frameworks */,
-				E957BC0B2CEECB7C0021E76F /* LaunchServicesPrivate in Frameworks */,
 				E957BC202CEECF2A0021E76F /* XPCBridge.framework in Frameworks */,
+				E9668FFE2CEF8D8D007B344A /* MachInjector in Frameworks */,
+				E96CB4BD2CEF972C00C3DE77 /* SwiftyXPC in Frameworks */,
+				E96CB4BB2CEF971700C3DE77 /* LaunchServicesPrivate in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -174,6 +173,8 @@
 			children = (
 				E919E5262CEDF4F6009B4B01 /* main.swift */,
 				E957BC4D2CEF1DA50021E76F /* Config.xcconfig */,
+				E9668FF92CEF6EB6007B344A /* Info.plist */,
+				E9668FFA2CEF6EB6007B344A /* launchd.plist */,
 			);
 			path = Injectd;
 			sourceTree = "<group>";
@@ -181,13 +182,14 @@
 		E919E52F2CEDF4FE009B4B01 /* MachInjectorExample */ = {
 			isa = PBXGroup;
 			children = (
-				E957BC4C2CEF18D50021E76F /* Info.plist */,
 				E919E5292CEDF4FE009B4B01 /* AppDelegate.swift */,
 				E919E52A2CEDF4FE009B4B01 /* Assets.xcassets */,
 				E919E52B2CEDF4FE009B4B01 /* MachInjectorExample.entitlements */,
 				E919E52D2CEDF4FE009B4B01 /* Main.storyboard */,
 				E919E52E2CEDF4FE009B4B01 /* ViewController.swift */,
+				E96CB4BE2CEF973C00C3DE77 /* MachInjectHostDelegate.swift */,
 				E957BC552CEF1FE10021E76F /* HelperInstaller.swift */,
+				E957BC4C2CEF18D50021E76F /* Info.plist */,
 			);
 			path = MachInjectorExample;
 			sourceTree = "<group>";
@@ -222,8 +224,8 @@
 				E919E4C82CED73D6009B4B01 /* Sources */,
 				E919E4C92CED73D6009B4B01 /* Frameworks */,
 				E919E4CA2CED73D6009B4B01 /* Resources */,
-				E957BC1D2CEECBA90021E76F /* Embed Frameworks */,
 				E957BC512CEF1FB00021E76F /* Embed LaunchServices */,
+				E957BC1D2CEECBA90021E76F /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -234,6 +236,7 @@
 			name = MachInjectorExample;
 			packageProductDependencies = (
 				E919E5132CEDE66A009B4B01 /* MachInjectorUI */,
+				E96CB4B72CEF970100C3DE77 /* SwiftyXPC */,
 			);
 			productName = MachInjectorExample;
 			productReference = E919E4CC2CED73D6009B4B01 /* MachInjectorExample.app */;
@@ -245,7 +248,6 @@
 			buildPhases = (
 				E919E5152CEDE90C009B4B01 /* Sources */,
 				E919E5162CEDE90C009B4B01 /* Frameworks */,
-				E919E5172CEDE90C009B4B01 /* CopyFiles */,
 				E957BC242CEECF2A0021E76F /* Embed Frameworks */,
 			);
 			buildRules = (
@@ -255,8 +257,9 @@
 			);
 			name = com.machinjector.example.injectd;
 			packageProductDependencies = (
-				E919E5212CEDE943009B4B01 /* MachInjector */,
-				E957BC0A2CEECB7C0021E76F /* LaunchServicesPrivate */,
+				E9668FFD2CEF8D8D007B344A /* MachInjector */,
+				E96CB4BA2CEF971700C3DE77 /* LaunchServicesPrivate */,
+				E96CB4BC2CEF972C00C3DE77 /* SwiftyXPC */,
 			);
 			productName = com.machinjector.example.injectd;
 			productReference = E919E5192CEDE90C009B4B01 /* com.machinjector.example.injectd */;
@@ -315,7 +318,8 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				E919E5102CEDE66A009B4B01 /* XCLocalSwiftPackageReference "../../../MachInjector" */,
-				E957BC092CEECB7C0021E76F /* XCRemoteSwiftPackageReference "LaunchServicesPrivate" */,
+				E96CB4B62CEF970100C3DE77 /* XCRemoteSwiftPackageReference "SwiftyXPC" */,
+				E96CB4B92CEF971700C3DE77 /* XCRemoteSwiftPackageReference "LaunchServicesPrivate" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E919E4CD2CED73D6009B4B01 /* Products */;
@@ -355,6 +359,7 @@
 			files = (
 				E957BC562CEF1FE10021E76F /* HelperInstaller.swift in Sources */,
 				E919E5322CEDF4FE009B4B01 /* AppDelegate.swift in Sources */,
+				E96CB4BF2CEF973C00C3DE77 /* MachInjectHostDelegate.swift in Sources */,
 				E919E5332CEDF4FE009B4B01 /* ViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -545,6 +550,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.JH.MachInjectorExample;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -573,6 +579,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.JH.MachInjectorExample;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -586,8 +593,11 @@
 			baseConfigurationReference = E957BC4D2CEF1DA50021E76F /* Config.xcconfig */;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = NO;
 				DEVELOPMENT_TEAM = D5Q73692VW;
 				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = "";
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.machinjector.example.injectd;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
@@ -599,8 +609,11 @@
 			baseConfigurationReference = E957BC4D2CEF1DA50021E76F /* Config.xcconfig */;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = NO;
 				DEVELOPMENT_TEAM = D5Q73692VW;
 				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = "";
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.machinjector.example.injectd;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
@@ -629,6 +642,7 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
@@ -666,6 +680,7 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MARKETING_VERSION = 1.0;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
@@ -729,7 +744,15 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		E957BC092CEECB7C0021E76F /* XCRemoteSwiftPackageReference "LaunchServicesPrivate" */ = {
+		E96CB4B62CEF970100C3DE77 /* XCRemoteSwiftPackageReference "SwiftyXPC" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/MxIris-macOS-Library-Forks/SwiftyXPC";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+		E96CB4B92CEF971700C3DE77 /* XCRemoteSwiftPackageReference "LaunchServicesPrivate" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/MxIris-Reverse-Engineering/LaunchServicesPrivate";
 			requirement = {
@@ -744,15 +767,25 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = MachInjectorUI;
 		};
-		E919E5212CEDE943009B4B01 /* MachInjector */ = {
+		E9668FFD2CEF8D8D007B344A /* MachInjector */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = E919E5102CEDE66A009B4B01 /* XCLocalSwiftPackageReference "../../../MachInjector" */;
 			productName = MachInjector;
 		};
-		E957BC0A2CEECB7C0021E76F /* LaunchServicesPrivate */ = {
+		E96CB4B72CEF970100C3DE77 /* SwiftyXPC */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E957BC092CEECB7C0021E76F /* XCRemoteSwiftPackageReference "LaunchServicesPrivate" */;
+			package = E96CB4B62CEF970100C3DE77 /* XCRemoteSwiftPackageReference "SwiftyXPC" */;
+			productName = SwiftyXPC;
+		};
+		E96CB4BA2CEF971700C3DE77 /* LaunchServicesPrivate */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E96CB4B92CEF971700C3DE77 /* XCRemoteSwiftPackageReference "LaunchServicesPrivate" */;
 			productName = LaunchServicesPrivate;
+		};
+		E96CB4BC2CEF972C00C3DE77 /* SwiftyXPC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E96CB4B62CEF970100C3DE77 /* XCRemoteSwiftPackageReference "SwiftyXPC" */;
+			productName = SwiftyXPC;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
