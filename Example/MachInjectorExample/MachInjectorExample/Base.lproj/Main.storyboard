@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <document type="com.apple.InterfaceBuilder3.Cocoa.Storyboard.XIB" version="3.0" toolsVersion="23504" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" initialViewController="B8D-0N-5wS">
     <dependencies>
+        <deployment identifier="macosx"/>
         <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="23504"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
@@ -706,90 +707,163 @@
             <objects>
                 <viewController id="XfG-lQ-9wD" customClass="ViewController" customModule="MachInjectorExample" customModuleProvider="target" sceneMemberID="viewController">
                     <view key="view" id="m2S-Jp-Qdl">
-                        <rect key="frame" x="0.0" y="0.0" width="671" height="347"/>
+                        <rect key="frame" x="0.0" y="0.0" width="697" height="336"/>
                         <autoresizingMask key="autoresizingMask"/>
                         <subviews>
-                            <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="NR9-BV-Bf0">
-                                <rect key="frame" x="42" y="280" width="196" height="32"/>
-                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                <buttonCell key="cell" type="push" title="Picker Running Application" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="rib-DX-Pys">
-                                    <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                    <font key="font" metaFont="system"/>
-                                </buttonCell>
-                                <connections>
-                                    <action selector="pickerRunningApplicationAction:" target="XfG-lQ-9wD" id="2cm-xs-kQJ"/>
-                                </connections>
-                            </button>
-                            <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="ZJa-bL-bOJ">
-                                <rect key="frame" x="42" y="231" width="116" height="32"/>
-                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                <buttonCell key="cell" type="push" title="Select a dylib" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="DJR-3R-fUh">
-                                    <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                    <font key="font" metaFont="system"/>
-                                </buttonCell>
-                                <connections>
-                                    <action selector="selectDylibAction:" target="XfG-lQ-9wD" id="D5X-28-Xdr"/>
-                                </connections>
-                            </button>
-                            <textField focusRingType="none" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="04l-aQ-dZE">
-                                <rect key="frame" x="206" y="237" width="377" height="21"/>
-                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                <textFieldCell key="cell" lineBreakMode="truncatingHead" sendsActionOnEndEditing="YES" borderStyle="bezel" bezelStyle="round" id="T0Z-1J-Sca">
-                                    <font key="font" metaFont="system"/>
-                                    <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
-                                    <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                </textFieldCell>
-                            </textField>
-                            <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="hrg-Xn-wYa">
-                                <rect key="frame" x="42" y="178" width="68" height="32"/>
-                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                <buttonCell key="cell" type="push" title="Inject" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="JGy-fn-Zhv">
-                                    <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                    <font key="font" metaFont="system"/>
-                                </buttonCell>
-                                <connections>
-                                    <action selector="injectAction:" target="XfG-lQ-9wD" id="lPn-oD-epv"/>
-                                </connections>
-                            </button>
-                            <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="ipZ-3j-4eC">
-                                <rect key="frame" x="42" y="118" width="156" height="32"/>
-                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                <buttonCell key="cell" type="push" title="Install Mach Service" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="NsZ-gW-HBt">
-                                    <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                    <font key="font" metaFont="system"/>
-                                </buttonCell>
-                                <connections>
-                                    <action selector="installMachServiceAction:" target="XfG-lQ-9wD" id="fXb-pB-QBL"/>
-                                </connections>
-                            </button>
-                            <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="hgw-0l-B9U">
-                                <rect key="frame" x="42" y="72" width="171" height="32"/>
-                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                <buttonCell key="cell" type="push" title="Connect Mach Service" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="9Ry-5W-vId">
-                                    <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                    <font key="font" metaFont="system"/>
-                                </buttonCell>
-                                <connections>
-                                    <action selector="connectMachServiceAction:" target="XfG-lQ-9wD" id="tqR-IB-AFX"/>
-                                </connections>
-                            </button>
-                            <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="0RF-Kq-p3d">
-                                <rect key="frame" x="42" y="27" width="61" height="32"/>
-                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                <buttonCell key="cell" type="push" title="Ping" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="zaD-di-KjJ">
-                                    <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                    <font key="font" metaFont="system"/>
-                                </buttonCell>
-                                <connections>
-                                    <action selector="pingAction:" target="XfG-lQ-9wD" id="6Qf-GG-J6g"/>
-                                </connections>
-                            </button>
+                            <gridView xPlacement="leading" yPlacement="center" rowAlignment="none" translatesAutoresizingMaskIntoConstraints="NO" id="NVJ-Ti-pfW">
+                                <rect key="frame" x="33" y="33" width="631" height="270"/>
+                                <rows>
+                                    <gridRow height="40" id="O8b-y4-vFW"/>
+                                    <gridRow height="40" id="gV4-cI-5ao"/>
+                                    <gridRow height="40" id="hVQ-q9-QB7"/>
+                                    <gridRow height="40" id="vBC-lm-tQ2"/>
+                                    <gridRow height="40" id="t95-NX-Chl"/>
+                                    <gridRow height="40" id="1sp-Yr-oj7"/>
+                                </rows>
+                                <columns>
+                                    <gridColumn width="200" leadingPadding="25" id="U13-6s-H5H"/>
+                                    <gridColumn width="400" id="cWC-F8-9pu"/>
+                                </columns>
+                                <gridCells>
+                                    <gridCell row="O8b-y4-vFW" column="U13-6s-H5H" id="nzu-FU-MTA">
+                                        <button key="contentView" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="NR9-BV-Bf0">
+                                            <rect key="frame" x="18" y="233" width="196" height="32"/>
+                                            <buttonCell key="cell" type="push" title="Picker Running Application" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="rib-DX-Pys">
+                                                <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                                <font key="font" metaFont="system"/>
+                                            </buttonCell>
+                                            <connections>
+                                                <action selector="pickerRunningApplicationAction:" target="XfG-lQ-9wD" id="2cm-xs-kQJ"/>
+                                            </connections>
+                                        </button>
+                                    </gridCell>
+                                    <gridCell row="O8b-y4-vFW" column="cWC-F8-9pu" id="3e1-2f-YwN">
+                                        <stackView key="contentView" distribution="fill" orientation="horizontal" alignment="centerY" spacing="20" horizontalStackHuggingPriority="249.99998474121094" verticalStackHuggingPriority="249.99998474121094" detachesHiddenViews="YES" translatesAutoresizingMaskIntoConstraints="NO" id="Ol6-Yw-kr7">
+                                            <rect key="frame" x="231" y="230" width="120" height="40"/>
+                                            <subviews>
+                                                <imageView horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="m6P-cj-wm9">
+                                                    <rect key="frame" x="0.0" y="0.0" width="50" height="40"/>
+                                                    <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" id="wif-Qj-5fV"/>
+                                                </imageView>
+                                                <textField focusRingType="none" horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="727-y7-Lts">
+                                                    <rect key="frame" x="68" y="12" width="54" height="16"/>
+                                                    <textFieldCell key="cell" lineBreakMode="clipping" id="J45-ZT-vgX">
+                                                        <font key="font" metaFont="system"/>
+                                                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                                                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                                    </textFieldCell>
+                                                </textField>
+                                            </subviews>
+                                            <visibilityPriorities>
+                                                <integer value="1000"/>
+                                                <integer value="1000"/>
+                                            </visibilityPriorities>
+                                            <customSpacing>
+                                                <real value="3.4028234663852886e+38"/>
+                                                <real value="3.4028234663852886e+38"/>
+                                            </customSpacing>
+                                        </stackView>
+                                    </gridCell>
+                                    <gridCell row="gV4-cI-5ao" column="U13-6s-H5H" id="U3N-sl-1bc">
+                                        <button key="contentView" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="ZJa-bL-bOJ">
+                                            <rect key="frame" x="18" y="187" width="116" height="32"/>
+                                            <buttonCell key="cell" type="push" title="Select a dylib" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="DJR-3R-fUh">
+                                                <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                                <font key="font" metaFont="system"/>
+                                            </buttonCell>
+                                            <connections>
+                                                <action selector="selectDylibAction:" target="XfG-lQ-9wD" id="D5X-28-Xdr"/>
+                                            </connections>
+                                        </button>
+                                    </gridCell>
+                                    <gridCell row="gV4-cI-5ao" column="cWC-F8-9pu" id="vB8-eZ-fNo">
+                                        <textField key="contentView" focusRingType="none" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="04l-aQ-dZE">
+                                            <rect key="frame" x="231" y="193" width="400" height="22"/>
+                                            <constraints>
+                                                <constraint firstAttribute="width" constant="400" id="AjT-X1-8UJ"/>
+                                            </constraints>
+                                            <textFieldCell key="cell" lineBreakMode="truncatingHead" sendsActionOnEndEditing="YES" borderStyle="bezel" bezelStyle="round" id="T0Z-1J-Sca">
+                                                <font key="font" metaFont="system"/>
+                                                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                                <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                                            </textFieldCell>
+                                        </textField>
+                                    </gridCell>
+                                    <gridCell row="hVQ-q9-QB7" column="U13-6s-H5H" id="tiX-jh-prl">
+                                        <button key="contentView" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="hrg-Xn-wYa">
+                                            <rect key="frame" x="18" y="141" width="68" height="32"/>
+                                            <buttonCell key="cell" type="push" title="Inject" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="JGy-fn-Zhv">
+                                                <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                                <font key="font" metaFont="system"/>
+                                            </buttonCell>
+                                            <connections>
+                                                <action selector="injectAction:" target="XfG-lQ-9wD" id="lPn-oD-epv"/>
+                                            </connections>
+                                        </button>
+                                    </gridCell>
+                                    <gridCell row="hVQ-q9-QB7" column="cWC-F8-9pu" id="zg5-7c-jHc"/>
+                                    <gridCell row="vBC-lm-tQ2" column="U13-6s-H5H" id="gZX-Af-Ad9">
+                                        <button key="contentView" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="ipZ-3j-4eC">
+                                            <rect key="frame" x="18" y="95" width="156" height="32"/>
+                                            <buttonCell key="cell" type="push" title="Install Mach Service" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="NsZ-gW-HBt">
+                                                <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                                <font key="font" metaFont="system"/>
+                                            </buttonCell>
+                                            <connections>
+                                                <action selector="installMachServiceAction:" target="XfG-lQ-9wD" id="fXb-pB-QBL"/>
+                                            </connections>
+                                        </button>
+                                    </gridCell>
+                                    <gridCell row="vBC-lm-tQ2" column="cWC-F8-9pu" id="hrw-4y-XR0"/>
+                                    <gridCell row="t95-NX-Chl" column="U13-6s-H5H" id="YfS-8E-oCV">
+                                        <button key="contentView" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="hgw-0l-B9U">
+                                            <rect key="frame" x="18" y="49" width="171" height="32"/>
+                                            <buttonCell key="cell" type="push" title="Connect Mach Service" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="9Ry-5W-vId">
+                                                <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                                <font key="font" metaFont="system"/>
+                                            </buttonCell>
+                                            <connections>
+                                                <action selector="connectMachServiceAction:" target="XfG-lQ-9wD" id="tqR-IB-AFX"/>
+                                            </connections>
+                                        </button>
+                                    </gridCell>
+                                    <gridCell row="t95-NX-Chl" column="cWC-F8-9pu" id="EZK-4S-Rsy"/>
+                                    <gridCell row="1sp-Yr-oj7" column="U13-6s-H5H" id="Lqe-Mk-doi">
+                                        <button key="contentView" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="0RF-Kq-p3d">
+                                            <rect key="frame" x="18" y="3" width="61" height="32"/>
+                                            <buttonCell key="cell" type="push" title="Ping" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="zaD-di-KjJ">
+                                                <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                                <font key="font" metaFont="system"/>
+                                            </buttonCell>
+                                            <connections>
+                                                <action selector="pingAction:" target="XfG-lQ-9wD" id="6Qf-GG-J6g"/>
+                                            </connections>
+                                        </button>
+                                    </gridCell>
+                                    <gridCell row="1sp-Yr-oj7" column="cWC-F8-9pu" id="vVj-Kw-kKX"/>
+                                </gridCells>
+                            </gridView>
                         </subviews>
+                        <constraints>
+                            <constraint firstItem="NVJ-Ti-pfW" firstAttribute="top" relation="greaterThanOrEqual" secondItem="m2S-Jp-Qdl" secondAttribute="top" constant="30" id="2vi-Ac-iuF"/>
+                            <constraint firstItem="NVJ-Ti-pfW" firstAttribute="centerY" secondItem="m2S-Jp-Qdl" secondAttribute="centerY" id="91Z-dl-IwB"/>
+                            <constraint firstAttribute="trailing" relation="greaterThanOrEqual" secondItem="NVJ-Ti-pfW" secondAttribute="trailing" constant="30" id="Fsp-fh-rWr"/>
+                            <constraint firstItem="NVJ-Ti-pfW" firstAttribute="centerX" secondItem="m2S-Jp-Qdl" secondAttribute="centerX" id="ldu-bD-iHl"/>
+                            <constraint firstAttribute="bottom" relation="greaterThanOrEqual" secondItem="NVJ-Ti-pfW" secondAttribute="bottom" constant="30" id="om0-5O-nXQ"/>
+                            <constraint firstItem="NVJ-Ti-pfW" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="m2S-Jp-Qdl" secondAttribute="leading" constant="30" id="pfK-yS-Kl6"/>
+                        </constraints>
                     </view>
+                    <connections>
+                        <outlet property="injectButton" destination="hrg-Xn-wYa" id="qx7-RL-V0J"/>
+                        <outlet property="pingButton" destination="0RF-Kq-p3d" id="haA-XS-4Np"/>
+                        <outlet property="runningApplicationIconImageView" destination="m6P-cj-wm9" id="yMY-4a-qSn"/>
+                        <outlet property="runningApplicationNameLabel" destination="727-y7-Lts" id="mA7-3i-nvt"/>
+                        <outlet property="selectedDylibPathLabel" destination="04l-aQ-dZE" id="JDG-aW-vJa"/>
+                    </connections>
                 </viewController>
                 <customObject id="rPt-NT-nkU" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
             </objects>
-            <point key="canvasLocation" x="72.5" y="802.5"/>
+            <point key="canvasLocation" x="139.5" y="928.5"/>
         </scene>
     </scenes>
 </document>

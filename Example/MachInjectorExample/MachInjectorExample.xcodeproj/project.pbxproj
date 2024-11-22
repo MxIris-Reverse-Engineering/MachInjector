@@ -13,14 +13,10 @@
 		E919E5312CEDF4FE009B4B01 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = E919E52D2CEDF4FE009B4B01 /* Main.storyboard */; };
 		E919E5322CEDF4FE009B4B01 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E919E5292CEDF4FE009B4B01 /* AppDelegate.swift */; };
 		E919E5332CEDF4FE009B4B01 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E919E52E2CEDF4FE009B4B01 /* ViewController.swift */; };
-		E957BC172CEECBA90021E76F /* XPCBridge.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E957BC112CEECBA90021E76F /* XPCBridge.framework */; };
-		E957BC182CEECBA90021E76F /* XPCBridge.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = E957BC112CEECBA90021E76F /* XPCBridge.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		E957BC202CEECF2A0021E76F /* XPCBridge.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E957BC112CEECBA90021E76F /* XPCBridge.framework */; };
-		E957BC212CEECF2A0021E76F /* XPCBridge.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = E957BC112CEECBA90021E76F /* XPCBridge.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		E957BC4A2CEF07CA0021E76F /* XPCBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = E957BC482CEF07CA0021E76F /* XPCBridge.swift */; };
-		E957BC4B2CEF07CA0021E76F /* XPCBridge.h in Headers */ = {isa = PBXBuildFile; fileRef = E957BC472CEF07CA0021E76F /* XPCBridge.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		E938442A2CF01AEA004916A8 /* XPCBridge in Frameworks */ = {isa = PBXBuildFile; productRef = E93844292CF01AEA004916A8 /* XPCBridge */; };
+		E938442C2CF01AF8004916A8 /* XPCBridge in Frameworks */ = {isa = PBXBuildFile; productRef = E938442B2CF01AF8004916A8 /* XPCBridge */; };
+		E938442F2CF01E00004916A8 /* SMJobKit in Frameworks */ = {isa = PBXBuildFile; productRef = E938442E2CF01E00004916A8 /* SMJobKit */; };
 		E957BC522CEF1FB70021E76F /* com.machinjector.example.injectd in Embed LaunchServices */ = {isa = PBXBuildFile; fileRef = E919E5192CEDE90C009B4B01 /* com.machinjector.example.injectd */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		E957BC562CEF1FE10021E76F /* HelperInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = E957BC552CEF1FE10021E76F /* HelperInstaller.swift */; };
 		E9668FFE2CEF8D8D007B344A /* MachInjector in Frameworks */ = {isa = PBXBuildFile; productRef = E9668FFD2CEF8D8D007B344A /* MachInjector */; };
 		E96CB4B82CEF970100C3DE77 /* SwiftyXPC in Frameworks */ = {isa = PBXBuildFile; productRef = E96CB4B72CEF970100C3DE77 /* SwiftyXPC */; };
 		E96CB4BB2CEF971700C3DE77 /* LaunchServicesPrivate in Frameworks */ = {isa = PBXBuildFile; productRef = E96CB4BA2CEF971700C3DE77 /* LaunchServicesPrivate */; };
@@ -29,20 +25,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		E957BC152CEECBA90021E76F /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = E919E4C42CED73D6009B4B01 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = E957BC102CEECBA90021E76F;
-			remoteInfo = XPCBridge;
-		};
-		E957BC222CEECF2A0021E76F /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = E919E4C42CED73D6009B4B01 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = E957BC102CEECBA90021E76F;
-			remoteInfo = XPCBridge;
-		};
 		E957BC532CEF1FBA0021E76F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = E919E4C42CED73D6009B4B01 /* Project object */;
@@ -53,28 +35,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		E957BC1D2CEECBA90021E76F /* Embed Frameworks */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
-			files = (
-				E957BC182CEECBA90021E76F /* XPCBridge.framework in Embed Frameworks */,
-			);
-			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		E957BC242CEECF2A0021E76F /* Embed Frameworks */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
-			files = (
-				E957BC212CEECF2A0021E76F /* XPCBridge.framework in Embed Frameworks */,
-			);
-			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		E957BC512CEF1FB00021E76F /* Embed LaunchServices */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -97,12 +57,9 @@
 		E919E52B2CEDF4FE009B4B01 /* MachInjectorExample.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MachInjectorExample.entitlements; sourceTree = "<group>"; };
 		E919E52C2CEDF4FE009B4B01 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		E919E52E2CEDF4FE009B4B01 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
-		E957BC112CEECBA90021E76F /* XPCBridge.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = XPCBridge.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		E957BC472CEF07CA0021E76F /* XPCBridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = XPCBridge.h; sourceTree = "<group>"; };
-		E957BC482CEF07CA0021E76F /* XPCBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XPCBridge.swift; sourceTree = "<group>"; };
+		E93844282CF01AD2004916A8 /* XPCBridge */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = XPCBridge; path = Packages/XPCBridge; sourceTree = "<group>"; };
 		E957BC4C2CEF18D50021E76F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		E957BC4D2CEF1DA50021E76F /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
-		E957BC552CEF1FE10021E76F /* HelperInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperInstaller.swift; sourceTree = "<group>"; };
 		E9668FF92CEF6EB6007B344A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		E9668FFA2CEF6EB6007B344A /* launchd.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = launchd.plist; sourceTree = "<group>"; };
 		E96CB4BE2CEF973C00C3DE77 /* MachInjectHostDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachInjectHostDelegate.swift; sourceTree = "<group>"; };
@@ -114,8 +71,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				E919E5142CEDE66A009B4B01 /* MachInjectorUI in Frameworks */,
-				E957BC172CEECBA90021E76F /* XPCBridge.framework in Frameworks */,
+				E938442C2CF01AF8004916A8 /* XPCBridge in Frameworks */,
 				E96CB4B82CEF970100C3DE77 /* SwiftyXPC in Frameworks */,
+				E938442F2CF01E00004916A8 /* SMJobKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -123,17 +81,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E957BC202CEECF2A0021E76F /* XPCBridge.framework in Frameworks */,
 				E9668FFE2CEF8D8D007B344A /* MachInjector in Frameworks */,
+				E938442A2CF01AEA004916A8 /* XPCBridge in Frameworks */,
 				E96CB4BD2CEF972C00C3DE77 /* SwiftyXPC in Frameworks */,
 				E96CB4BB2CEF971700C3DE77 /* LaunchServicesPrivate in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		E957BC0E2CEECBA90021E76F /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -143,9 +94,9 @@
 		E919E4C32CED73D6009B4B01 = {
 			isa = PBXGroup;
 			children = (
+				E93844282CF01AD2004916A8 /* XPCBridge */,
 				E919E52F2CEDF4FE009B4B01 /* MachInjectorExample */,
 				E919E5272CEDF4F6009B4B01 /* Injectd */,
-				E957BC492CEF07CA0021E76F /* XPCBridge */,
 				E919E5202CEDE943009B4B01 /* Frameworks */,
 				E919E4CD2CED73D6009B4B01 /* Products */,
 			);
@@ -156,7 +107,6 @@
 			children = (
 				E919E4CC2CED73D6009B4B01 /* MachInjectorExample.app */,
 				E919E5192CEDE90C009B4B01 /* com.machinjector.example.injectd */,
-				E957BC112CEECBA90021E76F /* XPCBridge.framework */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -188,33 +138,12 @@
 				E919E52D2CEDF4FE009B4B01 /* Main.storyboard */,
 				E919E52E2CEDF4FE009B4B01 /* ViewController.swift */,
 				E96CB4BE2CEF973C00C3DE77 /* MachInjectHostDelegate.swift */,
-				E957BC552CEF1FE10021E76F /* HelperInstaller.swift */,
 				E957BC4C2CEF18D50021E76F /* Info.plist */,
 			);
 			path = MachInjectorExample;
 			sourceTree = "<group>";
 		};
-		E957BC492CEF07CA0021E76F /* XPCBridge */ = {
-			isa = PBXGroup;
-			children = (
-				E957BC472CEF07CA0021E76F /* XPCBridge.h */,
-				E957BC482CEF07CA0021E76F /* XPCBridge.swift */,
-			);
-			path = XPCBridge;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
-
-/* Begin PBXHeadersBuildPhase section */
-		E957BC0C2CEECBA90021E76F /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				E957BC4B2CEF07CA0021E76F /* XPCBridge.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
 		E919E4CB2CED73D6009B4B01 /* MachInjectorExample */ = {
@@ -225,18 +154,18 @@
 				E919E4C92CED73D6009B4B01 /* Frameworks */,
 				E919E4CA2CED73D6009B4B01 /* Resources */,
 				E957BC512CEF1FB00021E76F /* Embed LaunchServices */,
-				E957BC1D2CEECBA90021E76F /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				E957BC542CEF1FBA0021E76F /* PBXTargetDependency */,
-				E957BC162CEECBA90021E76F /* PBXTargetDependency */,
 			);
 			name = MachInjectorExample;
 			packageProductDependencies = (
 				E919E5132CEDE66A009B4B01 /* MachInjectorUI */,
 				E96CB4B72CEF970100C3DE77 /* SwiftyXPC */,
+				E938442B2CF01AF8004916A8 /* XPCBridge */,
+				E938442E2CF01E00004916A8 /* SMJobKit */,
 			);
 			productName = MachInjectorExample;
 			productReference = E919E4CC2CED73D6009B4B01 /* MachInjectorExample.app */;
@@ -248,42 +177,21 @@
 			buildPhases = (
 				E919E5152CEDE90C009B4B01 /* Sources */,
 				E919E5162CEDE90C009B4B01 /* Frameworks */,
-				E957BC242CEECF2A0021E76F /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				E957BC232CEECF2A0021E76F /* PBXTargetDependency */,
 			);
 			name = com.machinjector.example.injectd;
 			packageProductDependencies = (
 				E9668FFD2CEF8D8D007B344A /* MachInjector */,
 				E96CB4BA2CEF971700C3DE77 /* LaunchServicesPrivate */,
 				E96CB4BC2CEF972C00C3DE77 /* SwiftyXPC */,
+				E93844292CF01AEA004916A8 /* XPCBridge */,
 			);
 			productName = com.machinjector.example.injectd;
 			productReference = E919E5192CEDE90C009B4B01 /* com.machinjector.example.injectd */;
 			productType = "com.apple.product-type.tool";
-		};
-		E957BC102CEECBA90021E76F /* XPCBridge */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = E957BC1A2CEECBA90021E76F /* Build configuration list for PBXNativeTarget "XPCBridge" */;
-			buildPhases = (
-				E957BC0C2CEECBA90021E76F /* Headers */,
-				E957BC0D2CEECBA90021E76F /* Sources */,
-				E957BC0E2CEECBA90021E76F /* Frameworks */,
-				E957BC0F2CEECBA90021E76F /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = XPCBridge;
-			packageProductDependencies = (
-			);
-			productName = XPCBridge;
-			productReference = E957BC112CEECBA90021E76F /* XPCBridge.framework */;
-			productType = "com.apple.product-type.framework";
 		};
 /* End PBXNativeTarget section */
 
@@ -301,10 +209,6 @@
 					E919E5182CEDE90C009B4B01 = {
 						CreatedOnToolsVersion = 16.1;
 					};
-					E957BC102CEECBA90021E76F = {
-						CreatedOnToolsVersion = 16.1;
-						LastSwiftMigration = 1610;
-					};
 				};
 			};
 			buildConfigurationList = E919E4C72CED73D6009B4B01 /* Build configuration list for PBXProject "MachInjectorExample" */;
@@ -320,6 +224,7 @@
 				E919E5102CEDE66A009B4B01 /* XCLocalSwiftPackageReference "../../../MachInjector" */,
 				E96CB4B62CEF970100C3DE77 /* XCRemoteSwiftPackageReference "SwiftyXPC" */,
 				E96CB4B92CEF971700C3DE77 /* XCRemoteSwiftPackageReference "LaunchServicesPrivate" */,
+				E938442D2CF01E00004916A8 /* XCRemoteSwiftPackageReference "SMJobKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E919E4CD2CED73D6009B4B01 /* Products */;
@@ -328,7 +233,6 @@
 			targets = (
 				E919E4CB2CED73D6009B4B01 /* MachInjectorExample */,
 				E919E5182CEDE90C009B4B01 /* com.machinjector.example.injectd */,
-				E957BC102CEECBA90021E76F /* XPCBridge */,
 			);
 		};
 /* End PBXProject section */
@@ -343,13 +247,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		E957BC0F2CEECBA90021E76F /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -357,7 +254,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E957BC562CEF1FE10021E76F /* HelperInstaller.swift in Sources */,
 				E919E5322CEDF4FE009B4B01 /* AppDelegate.swift in Sources */,
 				E96CB4BF2CEF973C00C3DE77 /* MachInjectHostDelegate.swift in Sources */,
 				E919E5332CEDF4FE009B4B01 /* ViewController.swift in Sources */,
@@ -372,27 +268,9 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		E957BC0D2CEECBA90021E76F /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				E957BC4A2CEF07CA0021E76F /* XPCBridge.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		E957BC162CEECBA90021E76F /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = E957BC102CEECBA90021E76F /* XPCBridge */;
-			targetProxy = E957BC152CEECBA90021E76F /* PBXContainerItemProxy */;
-		};
-		E957BC232CEECF2A0021E76F /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = E957BC102CEECBA90021E76F /* XPCBridge */;
-			targetProxy = E957BC222CEECF2A0021E76F /* PBXContainerItemProxy */;
-		};
 		E957BC542CEF1FBA0021E76F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = E919E5182CEDE90C009B4B01 /* com.machinjector.example.injectd */;
@@ -620,81 +498,6 @@
 			};
 			name = Release;
 		};
-		E957BC1B2CEECBA90021E76F /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
-				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
-				DEFINES_MODULE = YES;
-				DEVELOPMENT_TEAM = D5Q73692VW;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				DYLIB_INSTALL_NAME_BASE = "@rpath";
-				ENABLE_MODULE_VERIFIER = NO;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-					"@loader_path/Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 12.0;
-				MARKETING_VERSION = 1.0;
-				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
-				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
-				PRODUCT_BUNDLE_IDENTIFIER = com.JH.XPCBridge;
-				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
-				SKIP_INSTALL = YES;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_INSTALL_OBJC_HEADER = NO;
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_VERSION = 5.0;
-				VERSIONING_SYSTEM = "apple-generic";
-				VERSION_INFO_PREFIX = "";
-			};
-			name = Debug;
-		};
-		E957BC1C2CEECBA90021E76F /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
-				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
-				DEFINES_MODULE = YES;
-				DEVELOPMENT_TEAM = D5Q73692VW;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				DYLIB_INSTALL_NAME_BASE = "@rpath";
-				ENABLE_MODULE_VERIFIER = NO;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-					"@loader_path/Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 12.0;
-				MARKETING_VERSION = 1.0;
-				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
-				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
-				PRODUCT_BUNDLE_IDENTIFIER = com.JH.XPCBridge;
-				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
-				SKIP_INSTALL = YES;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_INSTALL_OBJC_HEADER = NO;
-				SWIFT_VERSION = 5.0;
-				VERSIONING_SYSTEM = "apple-generic";
-				VERSION_INFO_PREFIX = "";
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -725,15 +528,6 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		E957BC1A2CEECBA90021E76F /* Build configuration list for PBXNativeTarget "XPCBridge" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				E957BC1B2CEECBA90021E76F /* Debug */,
-				E957BC1C2CEECBA90021E76F /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -744,6 +538,14 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		E938442D2CF01E00004916A8 /* XCRemoteSwiftPackageReference "SMJobKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/IngmarStein/SMJobKit";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
 		E96CB4B62CEF970100C3DE77 /* XCRemoteSwiftPackageReference "SwiftyXPC" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/MxIris-macOS-Library-Forks/SwiftyXPC";
@@ -766,6 +568,19 @@
 		E919E5132CEDE66A009B4B01 /* MachInjectorUI */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MachInjectorUI;
+		};
+		E93844292CF01AEA004916A8 /* XPCBridge */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = XPCBridge;
+		};
+		E938442B2CF01AF8004916A8 /* XPCBridge */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = XPCBridge;
+		};
+		E938442E2CF01E00004916A8 /* SMJobKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E938442D2CF01E00004916A8 /* XCRemoteSwiftPackageReference "SMJobKit" */;
+			productName = SMJobKit;
 		};
 		E9668FFD2CEF8D8D007B344A /* MachInjector */ = {
 			isa = XCSwiftPackageProductDependency;

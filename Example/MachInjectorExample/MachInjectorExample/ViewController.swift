@@ -11,11 +11,30 @@ import XPCBridge
 import MachInjectorUI
 
 class ViewController: NSViewController {
-    var pid: pid_t?
+    var runningApplication: NSRunningApplication? {
+        didSet {
+            runningApplicationIconImageView.image = runningApplication?.icon
+            runningApplicationNameLabel.stringValue = runningApplication?.localizedName ?? ""
+        }
+    }
 
     var hostDelegate: MachInjectHostDelegate?
 
-    var dylibPath: String?
+    var dylibPath: String? {
+        didSet {
+            selectedDylibPathLabel.stringValue = dylibPath ?? ""
+        }
+    }
+
+    @IBOutlet var runningApplicationIconImageView: NSImageView!
+
+    @IBOutlet var runningApplicationNameLabel: NSTextField!
+
+    @IBOutlet var selectedDylibPathLabel: NSTextField!
+
+    @IBOutlet var injectButton: NSButton!
+
+    @IBOutlet var pingButton: NSButton!
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -38,15 +57,24 @@ class ViewController: NSViewController {
         guard result == .OK else { return }
         guard let url = openPanel.urls.first else { return }
         dylibPath = url.path
+        refreshInjectButton()
     }
 
+    func refreshInjectButton() {
+        injectButton.isEnabled = runningApplication != nil && dylibPath != nil && hostDelegate != nil
+    }
+    
+    func refreshPingButton() {
+        pingButton.isEnabled = hostDelegate != nil
+    }
+    
     @IBAction func injectAction(_ sender: Any) {
-        guard let pid, let dylibPath, let hostDelegate else {
+        guard let runningApplication, let dylibPath, let hostDelegate else {
             return
         }
         Task {
             do {
-                try await hostDelegate.inject(pid: pid, dylibPath: dylibPath)
+                try await hostDelegate.inject(pid: runningApplication.processIdentifier, dylibPath: dylibPath)
                 print("Inject success")
             } catch {
                 NSAlert(error: error).runModal()
@@ -58,6 +86,8 @@ class ViewController: NSViewController {
         do {
             hostDelegate = try MachInjectHostDelegate()
             print("Connect success")
+            refreshInjectButton()
+            refreshPingButton()
         } catch {
             NSAlert(error: error).runModal()
         }
@@ -65,17 +95,17 @@ class ViewController: NSViewController {
 
     @IBAction func installMachServiceAction(_ sender: Any) {
         do {
-            try HelperInstaller.install()
-            print("Install success")
+            try MachInjectClient.installWithPrompt(prompt: nil)
         } catch {
             NSAlert(error: error).runModal()
         }
     }
 
     @IBAction func pingAction(_ sender: Any) {
+        guard let hostDelegate else { return }
         Task {
             do {
-                try await hostDelegate?.ping()
+                try await hostDelegate.ping()
                 print("Ping success")
             } catch {
                 NSAlert(error: error).runModal()
@@ -92,7 +122,8 @@ extension ViewController: RunningApplicationPickerViewController.Delegate {
     func runningApplicationPickerViewController(_ viewController: MachInjectorUI.RunningApplicationPickerViewController, didSelectApplication application: NSRunningApplication) {}
 
     func runningApplicationPickerViewController(_ viewController: MachInjectorUI.RunningApplicationPickerViewController, didConfirmApplication application: NSRunningApplication) {
-        pid = application.processIdentifier
+        runningApplication = application
+        refreshInjectButton()
     }
 
     func runningApplicationPickerViewControllerWasCancel(_ viewController: MachInjectorUI.RunningApplicationPickerViewController) {}

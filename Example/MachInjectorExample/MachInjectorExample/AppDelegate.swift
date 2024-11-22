@@ -1,10 +1,3 @@
-//
-//  AppDelegate.swift
-//  MachInjectorExample
-//
-//  Created by JH on 2024/11/20.
-//
-
 import Cocoa
 
 @main
