@@ -38,8 +38,25 @@ class ViewController: NSViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        refreshInjectButton()
+        refreshPingButton()
+//        print(Bundle.allBundles.readableDescription)
+        getLoadedFrameworks()
     }
-
+    func getLoadedFrameworks() {
+        let count = _dyld_image_count()
+        for i in 0..<count {
+            if let imagePath = String(cString: _dyld_get_image_name(i), encoding: .utf8) {
+//                print(imagePath)
+                // 过滤系统Framework
+                if !imagePath.hasPrefix("/System/Library/"),
+                   !imagePath.hasPrefix("/Library/"),
+                   !imagePath.hasPrefix("/usr/lib/") {
+                    print("Framework: \(imagePath)")
+                }
+            }
+        }
+    }
     @IBAction func pickerRunningApplicationAction(_ sender: Any) {
         let runningApplicationPickerViewController = RunningApplicationPickerViewController()
         runningApplicationPickerViewController.preferredContentSize = .init(width: 800, height: 600)
@@ -127,4 +144,11 @@ extension ViewController: RunningApplicationPickerViewController.Delegate {
     }
 
     func runningApplicationPickerViewControllerWasCancel(_ viewController: MachInjectorUI.RunningApplicationPickerViewController) {}
+}
+
+
+extension Array {
+    var readableDescription: String {
+        map { "\($0)" }.joined(separator: "\n")
+    }
 }
