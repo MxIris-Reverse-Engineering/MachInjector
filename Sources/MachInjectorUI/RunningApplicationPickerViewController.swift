@@ -10,11 +10,11 @@ public final class RunningApplicationPickerViewController: NSViewController {
         public var rowHeight: CGFloat
         public var allowsColumns: [Column]
         public var cellSpacing: CGSize
-        public init(title: String? = nil, description: String? = nil, cancelButtonTitle: String? = nil, submitButtonTitle: String? = nil, rowHeight: CGFloat? = nil, allowsColumns: [Column]? = nil, cellSpacing: CGSize? = nil) {
+        public init(title: String? = nil, description: String? = nil, cancelButtonTitle: String? = nil, confirmButtonTitle: String? = nil, rowHeight: CGFloat? = nil, allowsColumns: [Column]? = nil, cellSpacing: CGSize? = nil) {
             self.title = title ?? "Running Applications"
             self.description = description ?? "Select an application"
             self.cancelButtonTitle = cancelButtonTitle ?? "Cancel"
-            self.confirmButtonTitle = submitButtonTitle ?? "Confirm"
+            self.confirmButtonTitle = confirmButtonTitle ?? "Confirm"
             self.rowHeight = rowHeight ?? 25
             self.allowsColumns = allowsColumns ?? [.icon, .name, .bundleIdentifier, .pid, .architecture, .sandboxed]
             self.cellSpacing = cellSpacing ?? .init(width: 0, height: 10)
