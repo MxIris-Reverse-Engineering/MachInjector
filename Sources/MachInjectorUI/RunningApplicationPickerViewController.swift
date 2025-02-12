@@ -280,14 +280,12 @@ public final class RunningApplicationPickerViewController: NSViewController {
     }
 
     @objc private func cancelAction() {
-        dismiss(nil)
         delegate?.runningApplicationPickerViewControllerWasCancel(self)
     }
 
     @objc private func confirmAction() {
         guard tableView.selectedRow != NSNotFound else { return }
         guard let delegate, let runningApplication = dataSource.itemIdentifier(forRow: tableView.selectedRow) else { return }
-        dismiss(nil)
         delegate.runningApplicationPickerViewController(self, didConfirmApplication: runningApplication)
     }
 
