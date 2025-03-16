@@ -141,9 +141,12 @@ extension ViewController: RunningApplicationPickerViewController.Delegate {
     func runningApplicationPickerViewController(_ viewController: MachInjectorUI.RunningApplicationPickerViewController, didConfirmApplication application: NSRunningApplication) {
         runningApplication = application
         refreshInjectButton()
+        viewController.dismiss(nil)
     }
 
-    func runningApplicationPickerViewControllerWasCancel(_ viewController: MachInjectorUI.RunningApplicationPickerViewController) {}
+    func runningApplicationPickerViewControllerWasCancel(_ viewController: MachInjectorUI.RunningApplicationPickerViewController) {
+        viewController.dismiss(nil)
+    }
 }
 
 
