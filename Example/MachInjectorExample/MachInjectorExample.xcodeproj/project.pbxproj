@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		E919E5142CEDE66A009B4B01 /* MachInjectorUI in Frameworks */ = {isa = PBXBuildFile; productRef = E919E5132CEDE66A009B4B01 /* MachInjectorUI */; };
 		E919E5282CEDF4F6009B4B01 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = E919E5262CEDF4F6009B4B01 /* main.swift */; };
 		E919E5302CEDF4FE009B4B01 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E919E52A2CEDF4FE009B4B01 /* Assets.xcassets */; };
 		E919E5312CEDF4FE009B4B01 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = E919E52D2CEDF4FE009B4B01 /* Main.storyboard */; };
@@ -24,6 +23,7 @@
 		E96CB4BF2CEF973C00C3DE77 /* MachInjectHostDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E96CB4BE2CEF973C00C3DE77 /* MachInjectHostDelegate.swift */; };
 		E97E5EBE2CF0FB35006B11AA /* TestFramework.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E97E5EB82CF0FB35006B11AA /* TestFramework.framework */; };
 		E97E5EBF2CF0FB35006B11AA /* TestFramework.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = E97E5EB82CF0FB35006B11AA /* TestFramework.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		E984DC662DA2E1D2007E689A /* RunningApplicationKit in Frameworks */ = {isa = PBXBuildFile; productRef = E984DC652DA2E1D2007E689A /* RunningApplicationKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -112,7 +112,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E919E5142CEDE66A009B4B01 /* MachInjectorUI in Frameworks */,
+				E984DC662DA2E1D2007E689A /* RunningApplicationKit in Frameworks */,
 				E938442C2CF01AF8004916A8 /* XPCBridge in Frameworks */,
 				E96CB4B82CEF970100C3DE77 /* SwiftyXPC in Frameworks */,
 				E97E5EBE2CF0FB35006B11AA /* TestFramework.framework in Frameworks */,
@@ -226,10 +226,10 @@
 			);
 			name = MachInjectorExample;
 			packageProductDependencies = (
-				E919E5132CEDE66A009B4B01 /* MachInjectorUI */,
 				E96CB4B72CEF970100C3DE77 /* SwiftyXPC */,
 				E938442B2CF01AF8004916A8 /* XPCBridge */,
 				E938442E2CF01E00004916A8 /* SMJobKit */,
+				E984DC652DA2E1D2007E689A /* RunningApplicationKit */,
 			);
 			productName = MachInjectorExample;
 			productReference = E919E4CC2CED73D6009B4B01 /* MachInjectorExample.app */;
@@ -315,6 +315,7 @@
 				E96CB4B62CEF970100C3DE77 /* XCRemoteSwiftPackageReference "SwiftyXPC" */,
 				E96CB4B92CEF971700C3DE77 /* XCRemoteSwiftPackageReference "LaunchServicesPrivate" */,
 				E938442D2CF01E00004916A8 /* XCRemoteSwiftPackageReference "SMJobKit" */,
+				E984DC642DA2E1D2007E689A /* XCRemoteSwiftPackageReference "RunningApplicationKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E919E4CD2CED73D6009B4B01 /* Products */;
@@ -747,13 +748,17 @@
 				kind = branch;
 			};
 		};
+		E984DC642DA2E1D2007E689A /* XCRemoteSwiftPackageReference "RunningApplicationKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Mx-Iris/RunningApplicationKit";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		E919E5132CEDE66A009B4B01 /* MachInjectorUI */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = MachInjectorUI;
-		};
 		E93844292CF01AEA004916A8 /* XPCBridge */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = XPCBridge;
@@ -786,6 +791,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E96CB4B62CEF970100C3DE77 /* XCRemoteSwiftPackageReference "SwiftyXPC" */;
 			productName = SwiftyXPC;
+		};
+		E984DC652DA2E1D2007E689A /* RunningApplicationKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E984DC642DA2E1D2007E689A /* XCRemoteSwiftPackageReference "RunningApplicationKit" */;
+			productName = RunningApplicationKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

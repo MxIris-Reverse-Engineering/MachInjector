@@ -8,7 +8,7 @@
 import XPC
 import AppKit
 import XPCBridge
-import MachInjectorUI
+import RunningApplicationKit
 
 class ViewController: NSViewController {
     var runningApplication: NSRunningApplication? {
@@ -132,19 +132,19 @@ class ViewController: NSViewController {
 }
 
 extension ViewController: RunningApplicationPickerViewController.Delegate {
-    func runningApplicationPickerViewController(_ viewController: MachInjectorUI.RunningApplicationPickerViewController, shouldSelectApplication application: NSRunningApplication) -> Bool {
+    func runningApplicationPickerViewController(_ viewController: RunningApplicationPickerViewController, shouldSelectApplication application: NSRunningApplication) -> Bool {
         true
     }
 
-    func runningApplicationPickerViewController(_ viewController: MachInjectorUI.RunningApplicationPickerViewController, didSelectApplication application: NSRunningApplication) {}
+    func runningApplicationPickerViewController(_ viewController: RunningApplicationPickerViewController, didSelectApplication application: NSRunningApplication) {}
 
-    func runningApplicationPickerViewController(_ viewController: MachInjectorUI.RunningApplicationPickerViewController, didConfirmApplication application: NSRunningApplication) {
+    func runningApplicationPickerViewController(_ viewController: RunningApplicationPickerViewController, didConfirmApplication application: NSRunningApplication) {
         runningApplication = application
         refreshInjectButton()
         viewController.dismiss(nil)
     }
 
-    func runningApplicationPickerViewControllerWasCancel(_ viewController: MachInjectorUI.RunningApplicationPickerViewController) {
+    func runningApplicationPickerViewControllerWasCancel(_ viewController: RunningApplicationPickerViewController) {
         viewController.dismiss(nil)
     }
 }
