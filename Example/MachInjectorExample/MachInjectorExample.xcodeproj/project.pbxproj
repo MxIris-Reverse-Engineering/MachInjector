@@ -744,16 +744,16 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/MxIris-Reverse-Engineering/LaunchServicesPrivate";
 			requirement = {
-				branch = main;
-				kind = branch;
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.1.0;
 			};
 		};
 		E984DC642DA2E1D2007E689A /* XCRemoteSwiftPackageReference "RunningApplicationKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/Mx-Iris/RunningApplicationKit";
 			requirement = {
-				branch = main;
-				kind = branch;
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.1.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

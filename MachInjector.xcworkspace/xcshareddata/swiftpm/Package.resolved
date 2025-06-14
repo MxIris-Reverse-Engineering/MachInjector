@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/MxIris-Reverse-Engineering/LaunchServicesPrivate",
       "state" : {
-        "branch" : "main",
-        "revision" : "80d52a34fed345c3e0852a4c6434f08076c103bf"
+        "revision" : "ee6dbcf2f13176c005337b37ba88431d40458a2b",
+        "version" : "0.1.0"
       }
     },
     {
@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Mx-Iris/RunningApplicationKit",
       "state" : {
-        "branch" : "main",
-        "revision" : "4f6938750de1221b544cfac3b1b967f7f15b9ce4"
+        "revision" : "9b517525c79ea951dbbf0c3590bccb3a5242d0b4",
+        "version" : "0.1.0"
       }
     },
     {
