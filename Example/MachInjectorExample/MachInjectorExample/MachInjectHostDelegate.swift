@@ -1,13 +1,6 @@
-//
-//  MachInjectHostDelegate.swift
-//  MachInjectorExample
-//
-//  Created by JH on 11/22/24.
-//
-
 import AppKit
 import XPCBridge
-import SwiftyXPC
+@preconcurrency import SwiftyXPC
 
 class MachInjectHostDelegate {
     let connection: XPCConnection
@@ -23,7 +16,7 @@ class MachInjectHostDelegate {
         switch response {
         case .success:
             break
-        case let .failure(error):
+        case .failure(let error):
             throw error
         }
     }
@@ -33,7 +26,7 @@ class MachInjectHostDelegate {
         switch response {
         case .success:
             break
-        case let .failure(error):
+        case .failure(let error):
             throw error
         }
     }

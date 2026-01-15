@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/MxIris-Reverse-Engineering/LaunchServicesPrivate",
       "state" : {
-        "revision" : "ee6dbcf2f13176c005337b37ba88431d40458a2b",
-        "version" : "0.1.0"
+        "branch" : "main",
+        "revision" : "ee6dbcf2f13176c005337b37ba88431d40458a2b"
       }
     },
     {
@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Mx-Iris/RunningApplicationKit",
       "state" : {
-        "revision" : "9b517525c79ea951dbbf0c3590bccb3a5242d0b4",
-        "version" : "0.1.0"
+        "branch" : "main",
+        "revision" : "e65e9ff6597750cbfa826d8c493089fef282ed9a"
       }
     },
     {
@@ -34,7 +34,7 @@
       "location" : "https://github.com/MxIris-macOS-Library-Forks/SwiftyXPC",
       "state" : {
         "branch" : "main",
-        "revision" : "6735c52ce0c5715991ee7d00ba642c52566b415a"
+        "revision" : "d56672e7939ae929e94d4ea66da3fc527a69724e"
       }
     }
   ],

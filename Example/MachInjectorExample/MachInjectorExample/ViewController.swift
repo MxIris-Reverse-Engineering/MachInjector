@@ -1,16 +1,9 @@
-//
-//  ViewController.swift
-//  MachInjectorExample
-//
-//  Created by JH on 2024/11/20.
-//
-
 import XPC
 import AppKit
 import XPCBridge
 import RunningApplicationKit
 
-class ViewController: NSViewController {
+final class ViewController: NSViewController {
     var runningApplication: NSRunningApplication? {
         didSet {
             runningApplicationIconImageView.image = runningApplication?.icon
@@ -26,37 +19,28 @@ class ViewController: NSViewController {
         }
     }
 
-    @IBOutlet var runningApplicationIconImageView: NSImageView!
+    @ViewLoading
+    @IBOutlet var runningApplicationIconImageView: NSImageView
 
-    @IBOutlet var runningApplicationNameLabel: NSTextField!
+    @ViewLoading
+    @IBOutlet var runningApplicationNameLabel: NSTextField
 
-    @IBOutlet var selectedDylibPathLabel: NSTextField!
+    @ViewLoading
+    @IBOutlet var selectedDylibPathLabel: NSTextField
 
-    @IBOutlet var injectButton: NSButton!
+    @ViewLoading
+    @IBOutlet var injectButton: NSButton
 
-    @IBOutlet var pingButton: NSButton!
+    @ViewLoading
+    @IBOutlet var pingButton: NSButton
 
     override func viewDidLoad() {
         super.viewDidLoad()
+
         refreshInjectButton()
         refreshPingButton()
-//        print(Bundle.allBundles.readableDescription)
-        getLoadedFrameworks()
     }
-    func getLoadedFrameworks() {
-        let count = _dyld_image_count()
-        for i in 0..<count {
-            if let imagePath = String(cString: _dyld_get_image_name(i), encoding: .utf8) {
-//                print(imagePath)
-                // 过滤系统Framework
-                if !imagePath.hasPrefix("/System/Library/"),
-                   !imagePath.hasPrefix("/Library/"),
-                   !imagePath.hasPrefix("/usr/lib/") {
-                    print("Framework: \(imagePath)")
-                }
-            }
-        }
-    }
+
     @IBAction func pickerRunningApplicationAction(_ sender: Any) {
         let runningApplicationPickerViewController = RunningApplicationPickerViewController()
         runningApplicationPickerViewController.preferredContentSize = .init(width: 800, height: 600)
@@ -80,11 +64,11 @@ class ViewController: NSViewController {
     func refreshInjectButton() {
         injectButton.isEnabled = runningApplication != nil && dylibPath != nil && hostDelegate != nil
     }
-    
+
     func refreshPingButton() {
         pingButton.isEnabled = hostDelegate != nil
     }
-    
+
     @IBAction func injectAction(_ sender: Any) {
         guard let runningApplication, let dylibPath, let hostDelegate else {
             return
@@ -143,12 +127,11 @@ extension ViewController: RunningApplicationPickerViewController.Delegate {
         refreshInjectButton()
         viewController.dismiss(nil)
     }
-
-    func runningApplicationPickerViewControllerWasCancel(_ viewController: RunningApplicationPickerViewController) {
+    
+    func runningApplicationPickerViewControllerWasCancelled(_ viewController: RunningApplicationPickerViewController) {
         viewController.dismiss(nil)
     }
 }
-
 
 extension Array {
     var readableDescription: String {

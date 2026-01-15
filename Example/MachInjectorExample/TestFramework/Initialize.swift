@@ -1,8 +1,9 @@
-//
-//  Initialize.swift
-//  TestFramework
-//
-//  Created by JH on 2026/1/15.
-//
-
 import Foundation
+import os.log
+
+//private let logger = Logger(subsystem: "com.machinjector.testframework", category: "Initialization")
+//
+//@_cdecl("initializeTestFramework")
+//private func initialize() {
+//    logger.info("TestFramework initialized in process \(ProcessInfo.processInfo.processName, privacy: .public) (PID: \(ProcessInfo.processInfo.processIdentifier, privacy: .public))")
+//}

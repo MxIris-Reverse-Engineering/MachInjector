@@ -12,6 +12,10 @@
 		E919E5312CEDF4FE009B4B01 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = E919E52D2CEDF4FE009B4B01 /* Main.storyboard */; };
 		E919E5322CEDF4FE009B4B01 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E919E5292CEDF4FE009B4B01 /* AppDelegate.swift */; };
 		E919E5332CEDF4FE009B4B01 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E919E52E2CEDF4FE009B4B01 /* ViewController.swift */; };
+		E92DC0242F194616007DA8BC /* Initialize.swift in Sources */ = {isa = PBXBuildFile; fileRef = E92DC0212F194616007DA8BC /* Initialize.swift */; };
+		E92DC0252F194616007DA8BC /* Initialize.h in Headers */ = {isa = PBXBuildFile; fileRef = E92DC0202F194616007DA8BC /* Initialize.h */; };
+		E92DC0262F194616007DA8BC /* TestFramework.h in Headers */ = {isa = PBXBuildFile; fileRef = E92DC0222F194616007DA8BC /* TestFramework.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		E92DC0282F194B49007DA8BC /* Initialize.m in Sources */ = {isa = PBXBuildFile; fileRef = E92DC0272F194B49007DA8BC /* Initialize.m */; };
 		E938442A2CF01AEA004916A8 /* XPCBridge in Frameworks */ = {isa = PBXBuildFile; productRef = E93844292CF01AEA004916A8 /* XPCBridge */; };
 		E938442C2CF01AF8004916A8 /* XPCBridge in Frameworks */ = {isa = PBXBuildFile; productRef = E938442B2CF01AF8004916A8 /* XPCBridge */; };
 		E938442F2CF01E00004916A8 /* SMJobKit in Frameworks */ = {isa = PBXBuildFile; productRef = E938442E2CF01E00004916A8 /* SMJobKit */; };
@@ -77,6 +81,10 @@
 		E919E52B2CEDF4FE009B4B01 /* MachInjectorExample.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MachInjectorExample.entitlements; sourceTree = "<group>"; };
 		E919E52C2CEDF4FE009B4B01 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		E919E52E2CEDF4FE009B4B01 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
+		E92DC0202F194616007DA8BC /* Initialize.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Initialize.h; sourceTree = "<group>"; };
+		E92DC0212F194616007DA8BC /* Initialize.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Initialize.swift; sourceTree = "<group>"; };
+		E92DC0222F194616007DA8BC /* TestFramework.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TestFramework.h; sourceTree = "<group>"; };
+		E92DC0272F194B49007DA8BC /* Initialize.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = Initialize.m; sourceTree = "<group>"; };
 		E93844282CF01AD2004916A8 /* XPCBridge */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = XPCBridge; path = Packages/XPCBridge; sourceTree = "<group>"; };
 		E957BC4C2CEF18D50021E76F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		E957BC4D2CEF1DA50021E76F /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
@@ -85,27 +93,6 @@
 		E96CB4BE2CEF973C00C3DE77 /* MachInjectHostDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachInjectHostDelegate.swift; sourceTree = "<group>"; };
 		E97E5EB82CF0FB35006B11AA /* TestFramework.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = TestFramework.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
-
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		E97E5EC32CF0FB35006B11AA /* Exceptions for "TestFramework" folder in "TestFramework" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			publicHeaders = (
-				TestFramework.h,
-			);
-			target = E97E5EB72CF0FB35006B11AA /* TestFramework */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-		E97E5EB92CF0FB35006B11AA /* TestFramework */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				E97E5EC32CF0FB35006B11AA /* Exceptions for "TestFramework" folder in "TestFramework" target */,
-			);
-			path = TestFramework;
-			sourceTree = "<group>";
-		};
-/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		E919E4C92CED73D6009B4B01 /* Frameworks */ = {
@@ -147,7 +134,7 @@
 				E93844282CF01AD2004916A8 /* XPCBridge */,
 				E919E52F2CEDF4FE009B4B01 /* MachInjectorExample */,
 				E919E5272CEDF4F6009B4B01 /* Injectd */,
-				E97E5EB92CF0FB35006B11AA /* TestFramework */,
+				E92DC0232F194616007DA8BC /* TestFramework */,
 				E919E5202CEDE943009B4B01 /* Frameworks */,
 				E919E4CD2CED73D6009B4B01 /* Products */,
 			);
@@ -195,6 +182,17 @@
 			path = MachInjectorExample;
 			sourceTree = "<group>";
 		};
+		E92DC0232F194616007DA8BC /* TestFramework */ = {
+			isa = PBXGroup;
+			children = (
+				E92DC0222F194616007DA8BC /* TestFramework.h */,
+				E92DC0202F194616007DA8BC /* Initialize.h */,
+				E92DC0272F194B49007DA8BC /* Initialize.m */,
+				E92DC0212F194616007DA8BC /* Initialize.swift */,
+			);
+			path = TestFramework;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -202,6 +200,8 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E92DC0252F194616007DA8BC /* Initialize.h in Headers */,
+				E92DC0262F194616007DA8BC /* TestFramework.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -270,9 +270,6 @@
 			);
 			dependencies = (
 			);
-			fileSystemSynchronizedGroups = (
-				E97E5EB92CF0FB35006B11AA /* TestFramework */,
-			);
 			name = TestFramework;
 			packageProductDependencies = (
 			);
@@ -298,6 +295,7 @@
 					};
 					E97E5EB72CF0FB35006B11AA = {
 						CreatedOnToolsVersion = 16.1;
+						LastSwiftMigration = 2620;
 					};
 				};
 			};
@@ -371,6 +369,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E92DC0242F194616007DA8BC /* Initialize.swift in Sources */,
+				E92DC0282F194B49007DA8BC /* Initialize.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -539,7 +539,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.JH.MachInjectorExample;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -568,7 +568,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.JH.MachInjectorExample;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -612,6 +612,7 @@
 		E97E5EC12CF0FB35006B11AA /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -637,6 +638,8 @@
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
 			};
@@ -645,6 +648,7 @@
 		E97E5EC22CF0FB35006B11AA /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -670,6 +674,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
 			};
@@ -744,16 +749,16 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/MxIris-Reverse-Engineering/LaunchServicesPrivate";
 			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.1.0;
+				branch = main;
+				kind = branch;
 			};
 		};
 		E984DC642DA2E1D2007E689A /* XCRemoteSwiftPackageReference "RunningApplicationKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/Mx-Iris/RunningApplicationKit";
 			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.1.0;
+				branch = main;
+				kind = branch;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

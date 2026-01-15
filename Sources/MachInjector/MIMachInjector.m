@@ -29,77 +29,16 @@ static kern_return_t (*_thread_convert_thread_state)(thread_act_t thread, int di
 
 #else // __x86_64__
 
-// x86_64 shellcode for dylib injection.
-// Creates a new thread via pthread_create_from_mach_thread,
-// then the new thread calls dlopen to load the target dylib.
-static char x86_shellcode[] =
-    "\x55"                             // push       rbp
-    "\x48\x89\xE5"                     // mov        rbp, rsp
-    "\x48\x83\xEC\x10"                 // sub        rsp, 0x10
-    "\x48\x8D\x7D\xF8"                 // lea        rdi, qword [rbp+var_8]
-    "\x31\xC0"                         // xor        eax, eax
-    "\x89\xC1"                         // mov        ecx, eax
-    "\x48\x8D\x15\x1E\x00\x00\x00"     // lea        rdx, qword ptr [rip+0x1E]
-    "\x48\x89\xCE"                     // mov        rsi, rcx
-    "\x48\xB8"                         // movabs     rax, pthread_create_from_mach_thread
-    "\x00\x00\x00\x00\x00\x00\x00\x00" // [PATCH: pthread_create address at offset 28]
-    "\xFF\xD0"                         // call       rax
-    "\x48\x83\xC4\x10"                 // add        rsp, 0x10
-    "\x5D"                             // pop        rbp
-    "\x48\xC7\xC0\x45\x4e\x4f\x44"     // mov        rax, MI_INJECTION_DONE (0x444f4e45)
-    "\xEB\xFE"                         // jmp        0x0 (infinite loop)
-    "\xC3"                             // ret
-    "\x55"                             // push       rbp (thread entry point)
-    "\x48\x89\xE5"                     // mov        rbp, rsp
-    "\xBE\x01\x00\x00\x00"             // mov        esi, 0x1 (RTLD_LAZY)
-    "\x48\x8D\x3D\x16\x00\x00\x00"     // lea        rdi, qword ptr [rip+0x16] (payload_path)
-    "\x48\xB8"                         // movabs     rax, dlopen
-    "\x00\x00\x00\x00\x00\x00\x00\x00" // [PATCH: dlopen address at offset 71]
-    "\xFF\xD0"                         // call       rax
-    "\x31\xF6"                         // xor        esi, esi
-    "\x89\xF7"                         // mov        edi, esi
-    "\x48\x89\xF8"                     // mov        rax, rdi
-    "\x5D"                             // pop        rbp
-    "\xC3"                             // ret
-    // Payload path buffer (512 bytes starting at offset 90)
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
+// External symbols from loader_x86_64.s
+// These define the shellcode boundaries and patch locations
+extern char __x86_shellcode_start[];
+extern char __x86_shellcode_end[];
+extern char __x86_patch_pthread_create[];
+extern char __x86_patch_dlopen[];
+extern char __x86_data_payload_path[];
 
-// Shellcode patch offsets for x86_64
-#define X86_PATCH_PTHREAD_CREATE  28
-#define X86_PATCH_DLOPEN          71
-#define X86_PAYLOAD_PATH_OFFSET   90
-#define X86_MAX_PATH_LENGTH       512
+// Maximum dylib path length (must match .zero size in loader_x86_64.s)
+#define X86_MAX_PATH_LENGTH 512
 
 #endif
 
@@ -189,8 +128,13 @@ static NSError *MIMachInjectorErrorMake(NSString *description, ...) {
     }
 
 #ifdef __x86_64__
-    // x86_64: Prepare and inject shellcode
-    code_size = sizeof(x86_shellcode);
+    // x86_64: Prepare and inject shellcode from external assembly
+    const uintptr_t X86_SHELLCODE_SIZE = __x86_shellcode_end - __x86_shellcode_start;
+    const uintptr_t X86_PTHREAD_CREATE_OFFSET = __x86_patch_pthread_create - __x86_shellcode_start;
+    const uintptr_t X86_DLOPEN_OFFSET = __x86_patch_dlopen - __x86_shellcode_start;
+    const uintptr_t X86_PAYLOAD_PATH_OFFSET = __x86_data_payload_path - __x86_shellcode_start;
+
+    code_size = X86_SHELLCODE_SIZE;
 
     if (mach_vm_allocate(task, &code, code_size, VM_FLAGS_ANYWHERE) != KERN_SUCCESS) {
         error = MIMachInjectorErrorMake(@"could not allocate code segment");
@@ -203,14 +147,15 @@ static NSError *MIMachInjectorErrorMake(NSString *description, ...) {
         error = MIMachInjectorErrorMake(@"malloc failed");
         goto cleanup;
     }
-    memcpy(local_shellcode, x86_shellcode, code_size);
+    memcpy(local_shellcode, __x86_shellcode_start, code_size);
 
     // Patch function addresses
+    // The patch locations are .quad data entries that are loaded via RIP-relative addressing
     uint64_t pcfmt_address = (uint64_t)dlsym(RTLD_DEFAULT, "pthread_create_from_mach_thread");
     uint64_t dlopen_address = (uint64_t)dlsym(RTLD_DEFAULT, "dlopen");
 
-    memcpy(local_shellcode + X86_PATCH_PTHREAD_CREATE, &pcfmt_address, sizeof(uint64_t));
-    memcpy(local_shellcode + X86_PATCH_DLOPEN, &dlopen_address, sizeof(uint64_t));
+    memcpy(local_shellcode + X86_PTHREAD_CREATE_OFFSET, &pcfmt_address, sizeof(uint64_t));
+    memcpy(local_shellcode + X86_DLOPEN_OFFSET, &dlopen_address, sizeof(uint64_t));
 
     // Copy dylib path with bounds check
     size_t pathLen = strlen(dylibPath.UTF8String);

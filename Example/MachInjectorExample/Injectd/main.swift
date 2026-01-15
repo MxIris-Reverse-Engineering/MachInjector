@@ -14,8 +14,21 @@ let listener = try SwiftyXPC.XPCListener(type: .machService(name: machService), 
 
 listener.setMessageHandler(name: MachInjectIdentifiers.inject) { (_, request: MachInjectRequest) -> MachInjectResponse in
     do {
-        try MachInjector.inject(pid: request.pid, dylibPath: request.dylibPath)
-        return .requestSuccess()
+        let usesAsync = true
+        
+        
+        if usesAsync {
+            let result = try await MachInjectorAsync.inject(pid: request.pid, dylibPath: request.dylibPath, timeout: 20)
+            
+            if result.success {
+                return .requestSuccess()
+            } else {
+                return .failure(.init(message: result.remoteErrorMessage ?? "Unknown error"))
+            }
+        } else {
+            try MachInjector.inject(pid: request.pid, dylibPath: request.dylibPath)
+            return .requestSuccess()
+        }
     } catch {
         return .failure(.init(message: error.localizedDescription))
     }
