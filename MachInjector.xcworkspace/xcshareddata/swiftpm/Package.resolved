@@ -1,5 +1,5 @@
 {
-  "originHash" : "f5ce2cbaac1079d0abd2b46ba31cdd7dadb05621c94e45d2f00bacfbcd2a1c22",
+  "originHash" : "9d41b6920ad1c8fa70e1e553865d50cfe53894ca0977e244f4671f1ad1e623fe",
   "pins" : [
     {
       "identity" : "launchservicesprivate",
@@ -17,15 +17,6 @@
       "state" : {
         "branch" : "main",
         "revision" : "e65e9ff6597750cbfa826d8c493089fef282ed9a"
-      }
-    },
-    {
-      "identity" : "smjobkit",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/IngmarStein/SMJobKit",
-      "state" : {
-        "branch" : "main",
-        "revision" : "4ed936712e6994a037581d33e1afbadda15e3394"
       }
     },
     {

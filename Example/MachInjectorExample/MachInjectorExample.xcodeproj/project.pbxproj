@@ -18,15 +18,14 @@
 		E92DC0282F194B49007DA8BC /* Initialize.m in Sources */ = {isa = PBXBuildFile; fileRef = E92DC0272F194B49007DA8BC /* Initialize.m */; };
 		E938442A2CF01AEA004916A8 /* XPCBridge in Frameworks */ = {isa = PBXBuildFile; productRef = E93844292CF01AEA004916A8 /* XPCBridge */; };
 		E938442C2CF01AF8004916A8 /* XPCBridge in Frameworks */ = {isa = PBXBuildFile; productRef = E938442B2CF01AF8004916A8 /* XPCBridge */; };
-		E938442F2CF01E00004916A8 /* SMJobKit in Frameworks */ = {isa = PBXBuildFile; productRef = E938442E2CF01E00004916A8 /* SMJobKit */; };
-		E957BC522CEF1FB70021E76F /* com.machinjector.example.injectd in Embed LaunchServices */ = {isa = PBXBuildFile; fileRef = E919E5192CEDE90C009B4B01 /* com.machinjector.example.injectd */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		E957BC522CEF1FB70021E76F /* com.machinjector.injectd in Embed Helpers */ = {isa = PBXBuildFile; fileRef = E919E5192CEDE90C009B4B01 /* com.machinjector.injectd */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		E9668FFE2CEF8D8D007B344A /* MachInjector in Frameworks */ = {isa = PBXBuildFile; productRef = E9668FFD2CEF8D8D007B344A /* MachInjector */; };
 		E96CB4B82CEF970100C3DE77 /* SwiftyXPC in Frameworks */ = {isa = PBXBuildFile; productRef = E96CB4B72CEF970100C3DE77 /* SwiftyXPC */; };
 		E96CB4BB2CEF971700C3DE77 /* LaunchServicesPrivate in Frameworks */ = {isa = PBXBuildFile; productRef = E96CB4BA2CEF971700C3DE77 /* LaunchServicesPrivate */; };
 		E96CB4BD2CEF972C00C3DE77 /* SwiftyXPC in Frameworks */ = {isa = PBXBuildFile; productRef = E96CB4BC2CEF972C00C3DE77 /* SwiftyXPC */; };
-		E96CB4BF2CEF973C00C3DE77 /* MachInjectHostDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E96CB4BE2CEF973C00C3DE77 /* MachInjectHostDelegate.swift */; };
+		E96CB4BF2CEF973C00C3DE77 /* MachInjectService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E96CB4BE2CEF973C00C3DE77 /* MachInjectService.swift */; };
+		E97C72CC2F19D50200E5F03A /* com.machinjector.injectd.plist in Embed LaunchDaemons */ = {isa = PBXBuildFile; fileRef = E97C72C92F19D44A00E5F03A /* com.machinjector.injectd.plist */; };
 		E97E5EBE2CF0FB35006B11AA /* TestFramework.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E97E5EB82CF0FB35006B11AA /* TestFramework.framework */; };
-		E97E5EBF2CF0FB35006B11AA /* TestFramework.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = E97E5EB82CF0FB35006B11AA /* TestFramework.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		E984DC662DA2E1D2007E689A /* RunningApplicationKit in Frameworks */ = {isa = PBXBuildFile; productRef = E984DC652DA2E1D2007E689A /* RunningApplicationKit */; };
 /* End PBXBuildFile section */
 
@@ -48,33 +47,33 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		E957BC512CEF1FB00021E76F /* Embed LaunchServices */ = {
+		E957BC512CEF1FB00021E76F /* Embed Helpers */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = Contents/Library/LaunchServices;
+			dstPath = Contents/Library/Helpers;
 			dstSubfolderSpec = 1;
 			files = (
-				E957BC522CEF1FB70021E76F /* com.machinjector.example.injectd in Embed LaunchServices */,
+				E957BC522CEF1FB70021E76F /* com.machinjector.injectd in Embed Helpers */,
 			);
-			name = "Embed LaunchServices";
+			name = "Embed Helpers";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		E97E5EC02CF0FB35006B11AA /* Embed Frameworks */ = {
+		E97C72CB2F19D4F100E5F03A /* Embed LaunchDaemons */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
+			dstPath = Contents/Library/LaunchDaemons;
+			dstSubfolderSpec = 1;
 			files = (
-				E97E5EBF2CF0FB35006B11AA /* TestFramework.framework in Embed Frameworks */,
+				E97C72CC2F19D50200E5F03A /* com.machinjector.injectd.plist in Embed LaunchDaemons */,
 			);
-			name = "Embed Frameworks";
+			name = "Embed LaunchDaemons";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		E919E4CC2CED73D6009B4B01 /* MachInjectorExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MachInjectorExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		E919E5192CEDE90C009B4B01 /* com.machinjector.example.injectd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = com.machinjector.example.injectd; sourceTree = BUILT_PRODUCTS_DIR; };
+		E919E5192CEDE90C009B4B01 /* com.machinjector.injectd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = com.machinjector.injectd; sourceTree = BUILT_PRODUCTS_DIR; };
 		E919E5262CEDF4F6009B4B01 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		E919E5292CEDF4FE009B4B01 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		E919E52A2CEDF4FE009B4B01 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -90,7 +89,8 @@
 		E957BC4D2CEF1DA50021E76F /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
 		E9668FF92CEF6EB6007B344A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		E9668FFA2CEF6EB6007B344A /* launchd.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = launchd.plist; sourceTree = "<group>"; };
-		E96CB4BE2CEF973C00C3DE77 /* MachInjectHostDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachInjectHostDelegate.swift; sourceTree = "<group>"; };
+		E96CB4BE2CEF973C00C3DE77 /* MachInjectService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachInjectService.swift; sourceTree = "<group>"; };
+		E97C72C92F19D44A00E5F03A /* com.machinjector.injectd.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.machinjector.injectd.plist; sourceTree = "<group>"; };
 		E97E5EB82CF0FB35006B11AA /* TestFramework.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = TestFramework.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -103,7 +103,6 @@
 				E938442C2CF01AF8004916A8 /* XPCBridge in Frameworks */,
 				E96CB4B82CEF970100C3DE77 /* SwiftyXPC in Frameworks */,
 				E97E5EBE2CF0FB35006B11AA /* TestFramework.framework in Frameworks */,
-				E938442F2CF01E00004916A8 /* SMJobKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -144,7 +143,7 @@
 			isa = PBXGroup;
 			children = (
 				E919E4CC2CED73D6009B4B01 /* MachInjectorExample.app */,
-				E919E5192CEDE90C009B4B01 /* com.machinjector.example.injectd */,
+				E919E5192CEDE90C009B4B01 /* com.machinjector.injectd */,
 				E97E5EB82CF0FB35006B11AA /* TestFramework.framework */,
 			);
 			name = Products;
@@ -176,7 +175,8 @@
 				E919E52B2CEDF4FE009B4B01 /* MachInjectorExample.entitlements */,
 				E919E52D2CEDF4FE009B4B01 /* Main.storyboard */,
 				E919E52E2CEDF4FE009B4B01 /* ViewController.swift */,
-				E96CB4BE2CEF973C00C3DE77 /* MachInjectHostDelegate.swift */,
+				E97C72C92F19D44A00E5F03A /* com.machinjector.injectd.plist */,
+				E96CB4BE2CEF973C00C3DE77 /* MachInjectService.swift */,
 				E957BC4C2CEF18D50021E76F /* Info.plist */,
 			);
 			path = MachInjectorExample;
@@ -215,8 +215,8 @@
 				E919E4C82CED73D6009B4B01 /* Sources */,
 				E919E4C92CED73D6009B4B01 /* Frameworks */,
 				E919E4CA2CED73D6009B4B01 /* Resources */,
-				E957BC512CEF1FB00021E76F /* Embed LaunchServices */,
-				E97E5EC02CF0FB35006B11AA /* Embed Frameworks */,
+				E957BC512CEF1FB00021E76F /* Embed Helpers */,
+				E97C72CB2F19D4F100E5F03A /* Embed LaunchDaemons */,
 			);
 			buildRules = (
 			);
@@ -228,16 +228,15 @@
 			packageProductDependencies = (
 				E96CB4B72CEF970100C3DE77 /* SwiftyXPC */,
 				E938442B2CF01AF8004916A8 /* XPCBridge */,
-				E938442E2CF01E00004916A8 /* SMJobKit */,
 				E984DC652DA2E1D2007E689A /* RunningApplicationKit */,
 			);
 			productName = MachInjectorExample;
 			productReference = E919E4CC2CED73D6009B4B01 /* MachInjectorExample.app */;
 			productType = "com.apple.product-type.application";
 		};
-		E919E5182CEDE90C009B4B01 /* com.machinjector.example.injectd */ = {
+		E919E5182CEDE90C009B4B01 /* com.machinjector.injectd */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = E919E51D2CEDE90C009B4B01 /* Build configuration list for PBXNativeTarget "com.machinjector.example.injectd" */;
+			buildConfigurationList = E919E51D2CEDE90C009B4B01 /* Build configuration list for PBXNativeTarget "com.machinjector.injectd" */;
 			buildPhases = (
 				E919E5152CEDE90C009B4B01 /* Sources */,
 				E919E5162CEDE90C009B4B01 /* Frameworks */,
@@ -246,7 +245,7 @@
 			);
 			dependencies = (
 			);
-			name = com.machinjector.example.injectd;
+			name = com.machinjector.injectd;
 			packageProductDependencies = (
 				E9668FFD2CEF8D8D007B344A /* MachInjector */,
 				E96CB4BA2CEF971700C3DE77 /* LaunchServicesPrivate */,
@@ -254,7 +253,7 @@
 				E93844292CF01AEA004916A8 /* XPCBridge */,
 			);
 			productName = com.machinjector.example.injectd;
-			productReference = E919E5192CEDE90C009B4B01 /* com.machinjector.example.injectd */;
+			productReference = E919E5192CEDE90C009B4B01 /* com.machinjector.injectd */;
 			productType = "com.apple.product-type.tool";
 		};
 		E97E5EB72CF0FB35006B11AA /* TestFramework */ = {
@@ -312,7 +311,6 @@
 				E919E5102CEDE66A009B4B01 /* XCLocalSwiftPackageReference "../../../MachInjector" */,
 				E96CB4B62CEF970100C3DE77 /* XCRemoteSwiftPackageReference "SwiftyXPC" */,
 				E96CB4B92CEF971700C3DE77 /* XCRemoteSwiftPackageReference "LaunchServicesPrivate" */,
-				E938442D2CF01E00004916A8 /* XCRemoteSwiftPackageReference "SMJobKit" */,
 				E984DC642DA2E1D2007E689A /* XCRemoteSwiftPackageReference "RunningApplicationKit" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -321,7 +319,7 @@
 			projectRoot = "";
 			targets = (
 				E919E4CB2CED73D6009B4B01 /* MachInjectorExample */,
-				E919E5182CEDE90C009B4B01 /* com.machinjector.example.injectd */,
+				E919E5182CEDE90C009B4B01 /* com.machinjector.injectd */,
 				E97E5EB72CF0FB35006B11AA /* TestFramework */,
 			);
 		};
@@ -352,7 +350,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E919E5322CEDF4FE009B4B01 /* AppDelegate.swift in Sources */,
-				E96CB4BF2CEF973C00C3DE77 /* MachInjectHostDelegate.swift in Sources */,
+				E96CB4BF2CEF973C00C3DE77 /* MachInjectService.swift in Sources */,
 				E919E5332CEDF4FE009B4B01 /* ViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -379,7 +377,7 @@
 /* Begin PBXTargetDependency section */
 		E957BC542CEF1FBA0021E76F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = E919E5182CEDE90C009B4B01 /* com.machinjector.example.injectd */;
+			target = E919E5182CEDE90C009B4B01 /* com.machinjector.injectd */;
 			targetProxy = E957BC532CEF1FBA0021E76F /* PBXContainerItemProxy */;
 		};
 		E97E5EBD2CF0FB35006B11AA /* PBXTargetDependency */ = {
@@ -701,7 +699,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		E919E51D2CEDE90C009B4B01 /* Build configuration list for PBXNativeTarget "com.machinjector.example.injectd" */ = {
+		E919E51D2CEDE90C009B4B01 /* Build configuration list for PBXNativeTarget "com.machinjector.injectd" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				E919E51E2CEDE90C009B4B01 /* Debug */,
@@ -729,14 +727,6 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		E938442D2CF01E00004916A8 /* XCRemoteSwiftPackageReference "SMJobKit" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/IngmarStein/SMJobKit";
-			requirement = {
-				branch = main;
-				kind = branch;
-			};
-		};
 		E96CB4B62CEF970100C3DE77 /* XCRemoteSwiftPackageReference "SwiftyXPC" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/MxIris-macOS-Library-Forks/SwiftyXPC";
@@ -771,11 +761,6 @@
 		E938442B2CF01AF8004916A8 /* XPCBridge */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = XPCBridge;
-		};
-		E938442E2CF01E00004916A8 /* SMJobKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = E938442D2CF01E00004916A8 /* XCRemoteSwiftPackageReference "SMJobKit" */;
-			productName = SMJobKit;
 		};
 		E9668FFD2CEF8D8D007B344A /* MachInjector */ = {
 			isa = XCSwiftPackageProductDependency;

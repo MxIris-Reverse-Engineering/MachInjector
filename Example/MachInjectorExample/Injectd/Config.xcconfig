@@ -1,2 +1,2 @@
-OTHER_LDFLAGS = $(inherited) -sectcreate __TEXT __info_plist "$(SRCROOT)/Injectd/Info.plist" -sectcreate __TEXT __launchd_plist "$(SRCROOT)/Injectd/launchd.plist"
+//OTHER_LDFLAGS = $(inherited) -sectcreate __TEXT __info_plist "$(SRCROOT)/Injectd/Info.plist" -sectcreate __TEXT __launchd_plist "$(SRCROOT)/Injectd/launchd.plist"
 

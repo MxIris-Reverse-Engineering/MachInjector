@@ -14,12 +14,8 @@ let listener = try SwiftyXPC.XPCListener(type: .machService(name: machService), 
 
 listener.setMessageHandler(name: MachInjectIdentifiers.inject) { (_, request: MachInjectRequest) -> MachInjectResponse in
     do {
-        let usesAsync = true
-        
-        
-        if usesAsync {
+        if request.isAsync {
             let result = try await MachInjectorAsync.inject(pid: request.pid, dylibPath: request.dylibPath, timeout: 20)
-            
             if result.success {
                 return .requestSuccess()
             } else {

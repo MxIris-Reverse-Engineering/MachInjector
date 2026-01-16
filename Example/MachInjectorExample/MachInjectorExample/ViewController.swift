@@ -2,6 +2,7 @@ import XPC
 import AppKit
 import XPCBridge
 import RunningApplicationKit
+import ServiceManagement
 
 final class ViewController: NSViewController {
     var runningApplication: NSRunningApplication? {
@@ -11,7 +12,7 @@ final class ViewController: NSViewController {
         }
     }
 
-    var hostDelegate: MachInjectHostDelegate?
+    var service: MachInjectService?
 
     var dylibPath: String? {
         didSet {
@@ -62,54 +63,64 @@ final class ViewController: NSViewController {
     }
 
     func refreshInjectButton() {
-        injectButton.isEnabled = runningApplication != nil && dylibPath != nil && hostDelegate != nil
+        injectButton.isEnabled = runningApplication != nil && dylibPath != nil && service != nil
     }
 
     func refreshPingButton() {
-        pingButton.isEnabled = hostDelegate != nil
+        pingButton.isEnabled = service != nil
     }
 
     @IBAction func injectAction(_ sender: Any) {
-        guard let runningApplication, let dylibPath, let hostDelegate else {
+        guard let runningApplication, let dylibPath, let service else {
             return
         }
-        Task {
+        Task { @MainActor in
             do {
-                try await hostDelegate.inject(pid: runningApplication.processIdentifier, dylibPath: dylibPath)
+                try await service.inject(pid: runningApplication.processIdentifier, dylibPath: dylibPath, isAsync: true)
                 print("Inject success")
             } catch {
-                NSAlert(error: error).runModal()
+                showAlert(for: error)
             }
+        }
+    }
+    
+    private func showAlert(for error: Error) {
+        print(error)
+        if let window = view.window {
+            NSAlert(error: error).beginSheetModal(for: window)
+        } else {
+            NSAlert(error: error).runModal()
         }
     }
 
     @IBAction func connectMachServiceAction(_ sender: Any) {
         do {
-            hostDelegate = try MachInjectHostDelegate()
+            service = try MachInjectService()
             print("Connect success")
             refreshInjectButton()
             refreshPingButton()
         } catch {
-            NSAlert(error: error).runModal()
+            showAlert(for: error)
         }
     }
 
     @IBAction func installMachServiceAction(_ sender: Any) {
         do {
-            try MachInjectClient.installWithPrompt(prompt: nil)
+            let daemonService = SMAppService.daemon(plistName: "com.machinjector.injectd.plist")
+            try daemonService.register()
         } catch {
-            NSAlert(error: error).runModal()
+            showAlert(for: error)
         }
     }
 
     @IBAction func pingAction(_ sender: Any) {
-        guard let hostDelegate else { return }
+        guard let service else { return }
         Task {
             do {
-                try await hostDelegate.ping()
+                try await service.ping()
                 print("Ping success")
             } catch {
-                NSAlert(error: error).runModal()
+                showAlert(for: error)
             }
         }
     }
