@@ -5,9 +5,10 @@
 //  Created by JH on 2026/1/16.
 //
 
-#import <Foundation/Foundation.h>
+#include "Initialize.h"
 
-__attribute__((constructor))
+extern void swift_initializeTestFramework(void);
+
 static void initializeTestFramework(void) {
-    NSLog(@"Initialize TestFramework");
+    swift_initializeTestFramework();
 }

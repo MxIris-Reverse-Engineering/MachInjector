@@ -24,8 +24,9 @@
 		E96CB4BB2CEF971700C3DE77 /* LaunchServicesPrivate in Frameworks */ = {isa = PBXBuildFile; productRef = E96CB4BA2CEF971700C3DE77 /* LaunchServicesPrivate */; };
 		E96CB4BD2CEF972C00C3DE77 /* SwiftyXPC in Frameworks */ = {isa = PBXBuildFile; productRef = E96CB4BC2CEF972C00C3DE77 /* SwiftyXPC */; };
 		E96CB4BF2CEF973C00C3DE77 /* MachInjectService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E96CB4BE2CEF973C00C3DE77 /* MachInjectService.swift */; };
+		E978F1722F1A703E004C09B4 /* TestFramework.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E97E5EB82CF0FB35006B11AA /* TestFramework.framework */; };
+		E978F1732F1A703E004C09B4 /* TestFramework.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = E97E5EB82CF0FB35006B11AA /* TestFramework.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		E97C72CC2F19D50200E5F03A /* com.machinjector.injectd.plist in Embed LaunchDaemons */ = {isa = PBXBuildFile; fileRef = E97C72C92F19D44A00E5F03A /* com.machinjector.injectd.plist */; };
-		E97E5EBE2CF0FB35006B11AA /* TestFramework.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E97E5EB82CF0FB35006B11AA /* TestFramework.framework */; };
 		E984DC662DA2E1D2007E689A /* RunningApplicationKit in Frameworks */ = {isa = PBXBuildFile; productRef = E984DC652DA2E1D2007E689A /* RunningApplicationKit */; };
 /* End PBXBuildFile section */
 
@@ -56,6 +57,17 @@
 				E957BC522CEF1FB70021E76F /* com.machinjector.injectd in Embed Helpers */,
 			);
 			name = "Embed Helpers";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E978F1742F1A703E004C09B4 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				E978F1732F1A703E004C09B4 /* TestFramework.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		E97C72CB2F19D4F100E5F03A /* Embed LaunchDaemons */ = {
@@ -100,9 +112,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				E984DC662DA2E1D2007E689A /* RunningApplicationKit in Frameworks */,
+				E978F1722F1A703E004C09B4 /* TestFramework.framework in Frameworks */,
 				E938442C2CF01AF8004916A8 /* XPCBridge in Frameworks */,
 				E96CB4B82CEF970100C3DE77 /* SwiftyXPC in Frameworks */,
-				E97E5EBE2CF0FB35006B11AA /* TestFramework.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -217,6 +229,7 @@
 				E919E4CA2CED73D6009B4B01 /* Resources */,
 				E957BC512CEF1FB00021E76F /* Embed Helpers */,
 				E97C72CB2F19D4F100E5F03A /* Embed LaunchDaemons */,
+				E978F1742F1A703E004C09B4 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
