@@ -5,10 +5,10 @@ import RunningApplicationKit
 import ServiceManagement
 
 final class ViewController: NSViewController {
-    var runningApplication: NSRunningApplication? {
+    var runningApplication: RunningApplication? {
         didSet {
             runningApplicationIconImageView.image = runningApplication?.icon
-            runningApplicationNameLabel.stringValue = runningApplication?.localizedName ?? ""
+            runningApplicationNameLabel.stringValue = runningApplication?.name ?? ""
         }
     }
 
@@ -43,7 +43,7 @@ final class ViewController: NSViewController {
     }
 
     @IBAction func pickerRunningApplicationAction(_ sender: Any) {
-        let runningApplicationPickerViewController = RunningApplicationPickerViewController()
+        let runningApplicationPickerViewController = RunningPickerTabViewController()
         runningApplicationPickerViewController.preferredContentSize = .init(width: 800, height: 600)
         runningApplicationPickerViewController.delegate = self
         presentAsSheet(runningApplicationPickerViewController)
@@ -83,7 +83,7 @@ final class ViewController: NSViewController {
             }
         }
     }
-    
+
     private func showAlert(for error: Error) {
         print(error)
         if let window = view.window {
@@ -126,22 +126,28 @@ final class ViewController: NSViewController {
     }
 }
 
-extension ViewController: RunningApplicationPickerViewController.Delegate {
-    func runningApplicationPickerViewController(_ viewController: RunningApplicationPickerViewController, shouldSelectApplication application: NSRunningApplication) -> Bool {
-        true
-    }
-
-    func runningApplicationPickerViewController(_ viewController: RunningApplicationPickerViewController, didSelectApplication application: NSRunningApplication) {}
-
-    func runningApplicationPickerViewController(_ viewController: RunningApplicationPickerViewController, didConfirmApplication application: NSRunningApplication) {
+extension ViewController: RunningPickerTabViewController.Delegate {    
+    func runningPickerTabViewController(_ viewController: RunningPickerTabViewController, didConfirmApplication application: RunningApplication) {
         runningApplication = application
         refreshInjectButton()
         viewController.dismiss(nil)
     }
-    
-    func runningApplicationPickerViewControllerWasCancelled(_ viewController: RunningApplicationPickerViewController) {
-        viewController.dismiss(nil)
-    }
+
+//    func runningApplicationPickerViewController(_ viewController: RunningApplicationPickerViewController, shouldSelectApplication application: NSRunningApplication) -> Bool {
+//        true
+//    }
+//
+//    func runningApplicationPickerViewController(_ viewController: RunningApplicationPickerViewController, didSelectApplication application: NSRunningApplication) {}
+//
+//    func runningApplicationPickerViewController(_ viewController: RunningApplicationPickerViewController, didConfirmApplication application: NSRunningApplication) {
+//        runningApplication = application
+//        refreshInjectButton()
+//        viewController.dismiss(nil)
+//    }
+//
+//    func runningApplicationPickerViewControllerWasCancelled(_ viewController: RunningApplicationPickerViewController) {
+//        viewController.dismiss(nil)
+//    }
 }
 
 extension Array {

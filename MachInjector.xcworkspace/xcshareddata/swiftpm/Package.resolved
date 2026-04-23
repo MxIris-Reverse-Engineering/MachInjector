@@ -1,5 +1,5 @@
 {
-  "originHash" : "9d41b6920ad1c8fa70e1e553865d50cfe53894ca0977e244f4671f1ad1e623fe",
+  "originHash" : "4c07e935be583380a068d18caf4232e9dea77efd1d512a91b828bf0fce01afd7",
   "pins" : [
     {
       "identity" : "launchservicesprivate",
@@ -16,7 +16,7 @@
       "location" : "https://github.com/Mx-Iris/RunningApplicationKit",
       "state" : {
         "branch" : "main",
-        "revision" : "e65e9ff6597750cbfa826d8c493089fef282ed9a"
+        "revision" : "5ff991e2b32445cebce2514fbc428594dfa092cd"
       }
     },
     {
