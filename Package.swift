@@ -5,7 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "MachInjector",
-    platforms: [.macOS(.v11)],
+    platforms: [.macOS(.v10_15)],
     products: [
         .library(
             name: "MachInjector",
