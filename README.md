@@ -9,9 +9,10 @@ Distilled from [yabai](https://github.com/koekeishiya/yabai)'s injection code an
 
 ## Features
 
-- Two injection paths under a unified API surface
+- Three injection paths under a unified API surface
   - **Synchronous** (`MachInjector`) — works on ARM64 and x86_64; completion is polled via a magic marker
   - **Asynchronous V2** (`MachInjectorAsync`) — ARM64 only; event-driven completion via `dispatch_source` on `MACH_SEND_DEAD`
+  - **mach\_vm\_remap** (`MachInjectorRemap`) — arm64 / arm64e only; bypasses `dlopen` inside the target by mapping the payload's segments straight into the target's VM space. Necessary for strict seatbelt daemons (sharingd, rapportd, and similar) that deny `file-map-executable` for any path outside a hard-coded system whitelist.
 - Rosetta 2 / translated x86_64 targets supported by the ARM64 shellcode (via `liboah.dylib` probing)
 - Detailed `NSError` reporting, including the remote `dlerror()` string when `dlopen()` fails in the target process
 - Swift `async/await` import for the asynchronous API
@@ -137,6 +138,43 @@ MachInjectorAsync.inject(
 }];
 ```
 
+### mach\_vm\_remap injection (arm64 / arm64e, strict-sandbox targets)
+
+The remap path avoids `dlopen` in the target entirely by projecting the payload's Mach-O segments straight into the target with `mach_vm_remap`. It is the only path that works for strict seatbelt daemons like `sharingd` or `rapportd`, whose sandbox profile denies `file-map-executable` for any path outside a hard-coded system whitelist.
+
+The payload must expose an exported C function whose signature matches `void *(*)(void *)`. The argument is a pointer to a `MachInjectorRemapPayloadConfig` (see `MIMachInjectorRemap.h`) that carries the addresses of `libobjc`'s `map_images` and `libswiftCore`'s three `swift_register*` APIs, plus the target-space begin/end ranges of the payload's `__swift5_types` / `__swift5_protos` / `__swift5_proto` sections. A typical entry registers Swift metadata and calls `map_images` before doing its real work — see `Documentations/ResolvedIssues/2026-07-17-mach-vm-remap-poc-milestones.md` in the RuntimeViewer repository for the full derivation.
+
+**Swift**
+
+```swift
+import MachInjector
+
+do {
+    try MachInjectorRemap.inject(
+        pid: sharingdPID,
+        payloadPath: "/path/to/RuntimeViewerServer.framework/Versions/A/RuntimeViewerServer",
+        entrySymbol: "runtime_viewer_server_start"
+    )
+} catch {
+    print("Remap injection failed: \(error)")
+}
+```
+
+**Objective-C**
+
+```objc
+#import <MachInjector/MachInjector.h>
+
+NSError *error = nil;
+BOOL ok = [MIMachInjectorRemap injectToPID:sharingdPID
+                               payloadPath:@"/…/RuntimeViewerServer"
+                               entrySymbol:@"runtime_viewer_server_start"
+                                     error:&error];
+if (!ok) NSLog(@"Failed: %@", error);
+```
+
+The path ships a small ad-hoc-signed loader dylib as embedded bytes and dumps it to `/private/tmp/MIMachInjectorRemap_loader_XXXXXX.dylib` at injection time; the file is unlinked before the API returns.
+
 ## Architecture
 
 | | `MachInjector` (sync) | `MachInjectorAsync` (V2) |
@@ -200,6 +238,8 @@ Open `MachInjector.xcworkspace` (not the empty `MachInjector.xcodeproj` stub at 
 
 The asynchronous path defines codes 1–22 under `MIMachInjectorAsyncErrorDomain`. See the table in [`MIMachInjectorAsync.h`](Sources/MachInjector/include/MIMachInjectorAsync.h) for the full list — common ones include:
 
+**`MIMachInjectorAsyncErrorDomain`**
+
 | Code | Meaning |
 |---:|---|
 | 3 | `task_for_pid()` failed (permission denied or process not found) |
@@ -207,6 +247,26 @@ The asynchronous path defines codes 1–22 under `MIMachInjectorAsyncErrorDomain
 | 14 | Failed to create remote thread |
 | 18 | `dlopen()` failed in target process (check `remoteErrorMessage`) |
 | 19 | Injection timed out |
+
+**`MIMachInjectorRemapErrorDomain`**
+
+| Code | Meaning |
+|---:|---|
+| 1 | Failed to write embedded loader dylib to temp path |
+| 2 | Failed to `dlopen` embedded loader dylib |
+| 3 | Loader dylib missing required symbols |
+| 4 | Failed to `dlopen` payload dylib in the injector |
+| 5 | Payload does not export the requested entry symbol |
+| 7 | Failed to open `libswiftCore.dylib` |
+| 8 | `libswiftCore` missing required Swift-register APIs |
+| 9 | Failed to locate `libobjc`'s `map_images` via dyld gAPIs |
+| 10 | `task_for_pid()` failed (permission denied or process not found) |
+| 11 | Failed to allocate memory in target process |
+| 12 | Failed to `mach_vm_write` config page in target |
+| 13 | Failed to `mach_vm_remap` payload segments into target |
+| 14 | Failed to `mach_vm_remap` loader segments into target |
+| 15 | Failed to convert thread state (arm64e ptrauth) |
+| 16 | Failed to start remote mach thread |
 
 ## References
 
