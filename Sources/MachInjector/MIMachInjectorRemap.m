@@ -616,18 +616,27 @@ static thread_convert_thread_state_fn_t LoadThreadConvert(void) {
             return NO;
         }
 
-        // Give the mach thread a moment to call pthread_create_from_mach_thread
-        // and enter its spin loop before we terminate it.
-        usleep(300 * 1000);
+        // Let the pthread come up and hand execution to the payload entry
+        // before we terminate the raw mach thread. Terminating the mach
+        // thread before the pthread has been fully spawned races the
+        // bootstrap; terminating too early has been observed to leave the
+        // target in an unstable state under load.
+        usleep(2000 * 1000);
         thread_terminate(thread);
         success = YES;
     } @finally {
-        // Best-effort cleanup. dlclose the loader handle first so we can
-        // rm the temp file on POSIX; dlclose on the payload/swiftCore is
-        // safe but not required — the target still holds mapped pages.
-        if (loaderHandle) (void)dlclose(loaderHandle);
-        if (payloadHandle) (void)dlclose(payloadHandle);
-        if (swiftCoreHandle) (void)dlclose(swiftCoreHandle);
+        // Deliberately leak the payload and loader handles — dlclose in
+        // the injector would trigger dyld's unload path (destructor pass +
+        // mprotect changes) on pages that the target is sharing via the
+        // `copy=FALSE` mach_vm_remap. Those protection changes propagate
+        // through the shared VM object and crash the target with
+        // KERN_PROTECTION_FAILURE next time it touches the shared page.
+        // The injector process typically exits shortly after inject()
+        // returns, so the leak is bounded.
+        //
+        // We can, however, remove the temp file — dlopen keeps an internal
+        // fd on the loader dylib so unlink only drops the directory entry;
+        // the inode stays alive as long as our reference does.
         if (loaderPath) (void)unlink([loaderPath UTF8String]);
     }
     return success;
