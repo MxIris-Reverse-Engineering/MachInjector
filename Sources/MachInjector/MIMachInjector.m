@@ -5,6 +5,13 @@
 #include <dlfcn.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <bsm/libbsm.h>
+
+extern char *sandbox_extension_issue_file_to_process(const char *extension_class, const char *path, uint32_t flags, audit_token_t);
+
+#ifndef TASK_AUDIT_TOKEN
+#define TASK_AUDIT_TOKEN 15
+#endif
 
 // Completion magic number: "DONE" in little-endian (0x444f4e45)
 #define MI_INJECTION_DONE 0x444f4e45
@@ -93,20 +100,38 @@ static NSError *MIMachInjectorErrorMake(NSString *description, ...) {
         goto cleanup;
     }
 
-#ifdef __arm64__
-    // Issue sandbox extension token for the dylib path
-    sandbox_token = sandbox_extension_issue_file(APP_SANDBOX_READ, dylibPath.UTF8String, 0);
-    if (!sandbox_token) {
-        error = MIMachInjectorErrorMake(@"could not issue sandbox extension token");
-        goto cleanup;
-    }
-#endif
-
     // Get task port for target process
     if (task_for_pid(mach_task_self(), pid, &task) != KERN_SUCCESS) {
         error = MIMachInjectorErrorMake(@"could not retrieve task port for pid: %d", pid);
         goto cleanup;
     }
+
+#ifdef __arm64__
+    // Issue a sandbox extension token bound to the target process's audit token.
+    //
+    // Xcode's DVTInstrumentsFoundation.RemoteBundleLoader uses this variant
+    // (see -[RemoteBundleLoader scheduleLibraryLoad:...]) so the token is
+    // bound to the specific target. A generic token from
+    // sandbox_extension_issue_file suffices for App Sandbox targets, but
+    // seatbelt-profiled daemons whose profile predicates check the emitting
+    // audit token reject it. Fall back to the generic variant if the audit
+    // lookup fails (dead target, stripped task port, etc.).
+    audit_token_t targetAuditToken = {{0}};
+    mach_msg_type_number_t auditTokenCount = TASK_AUDIT_TOKEN_COUNT;
+    kern_return_t auditKr = task_info(task, TASK_AUDIT_TOKEN,
+                                     (task_info_t)&targetAuditToken, &auditTokenCount);
+    if (auditKr == KERN_SUCCESS) {
+        sandbox_token = sandbox_extension_issue_file_to_process(
+            APP_SANDBOX_READ, dylibPath.UTF8String, 0, targetAuditToken);
+    }
+    if (!sandbox_token) {
+        sandbox_token = sandbox_extension_issue_file(APP_SANDBOX_READ, dylibPath.UTF8String, 0);
+    }
+    if (!sandbox_token) {
+        error = MIMachInjectorErrorMake(@"could not issue sandbox extension token");
+        goto cleanup;
+    }
+#endif
 
     // Allocate stack in target process
     if (mach_vm_allocate(task, &stack, stack_size, VM_FLAGS_ANYWHERE) != KERN_SUCCESS) {

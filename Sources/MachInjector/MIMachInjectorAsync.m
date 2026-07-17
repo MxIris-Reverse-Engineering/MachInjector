@@ -210,6 +210,11 @@ static oah_thread_create_running_t get_oah_thread_create_running(void) {
 
 extern const char *const APP_SANDBOX_READ;
 extern char *sandbox_extension_issue_file(const char *extension_class, const char *path, uint32_t flags);
+extern char *sandbox_extension_issue_file_to_process(const char *extension_class, const char *path, uint32_t flags, audit_token_t);
+
+#ifndef TASK_AUDIT_TOKEN
+#define TASK_AUDIT_TOKEN 15
+#endif
 
 // =============================================================================
 // MARK: - External Shellcode Symbols (V2)
@@ -562,18 +567,12 @@ static void Phase1Completion(MIInjectionContext *ctx) {
     BOOL isTranslated = isProcessTranslated(pid);
 
     // =========================================================================
-    // Step 4: Issue sandbox extension token
-    // =========================================================================
-
-    char *sandbox_token = sandbox_extension_issue_file(APP_SANDBOX_READ, dylibPath.UTF8String, 0);
-
-    // =========================================================================
-    // Step 5: Get task port for target process
+    // Step 4: Get task port for target process (moved before sandbox extension
+    //         so we can retrieve the target's audit token for _to_process)
     // =========================================================================
 
     kern_return_t kr = task_for_pid(mach_task_self(), pid, &ctx->task);
     if (kr != KERN_SUCCESS) {
-        if (sandbox_token) free(sandbox_token);
         MIInjectionResult *result = [[MIInjectionResult alloc]
             initWithSuccess:NO
                      handle:0
@@ -584,6 +583,31 @@ static void Phase1Completion(MIInjectionContext *ctx) {
             if (completionHandler) completionHandler(result, result.error);
         });
         return;
+    }
+
+    // =========================================================================
+    // Step 5: Issue a sandbox extension token bound to the target's audit token
+    //
+    // Mirrors DVTInstrumentsFoundation.RemoteBundleLoader:
+    // sandbox_extension_issue_file_to_process produces a token tied to the
+    // target process. Some seatbelt profiles reject the generic token from
+    // sandbox_extension_issue_file even when the same class and path would
+    // otherwise be allowed. Fall back to the generic variant if the audit
+    // lookup fails.
+    // =========================================================================
+
+    audit_token_t targetAuditToken = {{0}};
+    mach_msg_type_number_t auditTokenCount = TASK_AUDIT_TOKEN_COUNT;
+    kern_return_t auditKr = task_info(ctx->task, TASK_AUDIT_TOKEN,
+                                     (task_info_t)&targetAuditToken, &auditTokenCount);
+
+    char *sandbox_token = NULL;
+    if (auditKr == KERN_SUCCESS) {
+        sandbox_token = sandbox_extension_issue_file_to_process(
+            APP_SANDBOX_READ, dylibPath.UTF8String, 0, targetAuditToken);
+    }
+    if (!sandbox_token) {
+        sandbox_token = sandbox_extension_issue_file(APP_SANDBOX_READ, dylibPath.UTF8String, 0);
     }
 
     // =========================================================================
