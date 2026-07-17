@@ -28,6 +28,14 @@
 //   * After spawning the pthread, the mach thread spins forever (`b 1b`).
 //     The injector terminates it later; the pthread runs the user payload.
 
+// The SPM target compiles this file for every slice in the target's arch
+// matrix (arm64, arm64e, x86_64, ...). Gate the entire body on __arm64__ so
+// that x86_64 slices produce an empty object file instead of failing on
+// arm64-only mnemonics like `adrp`, `blr`, or the `@PAGE` / `@PAGEOFF`
+// operators — same technique the sibling `loader_arm64.s` / `loader_arm64_async.s`
+// files use.
+#ifdef __arm64__
+
     .section __TEXT,__text,regular,pure_instructions
     .globl _remap_stage1_entry
     .p2align 2
@@ -75,3 +83,5 @@ _cfg_pthread_arg:
     .globl _cfg_pthread_out
 _cfg_pthread_out:
     .quad   0
+
+#endif // __arm64__

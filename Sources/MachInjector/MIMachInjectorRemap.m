@@ -5,6 +5,14 @@
 
 #import "MIMachInjectorRemap.h"
 
+// The SPM target compiles this file for every slice the umbrella target
+// requests (arm64, arm64e, x86_64, ...). The implementation depends on arm64
+// thread-state types (`arm_thread_state64_t`, `ARM_THREAD_STATE64`) and the
+// loader dylib is arm64-only, so gate the whole real implementation on
+// __arm64__ and provide a `@available`-style stub for x86_64 slices — same
+// pattern MIMachInjectorAsync uses.
+#ifdef __arm64__
+
 #include <dlfcn.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -643,3 +651,34 @@ static thread_convert_thread_state_fn_t LoadThreadConvert(void) {
 }
 
 @end
+
+#else // !__arm64__
+
+// -----------------------------------------------------------------------------
+// x86_64 stub — MIMachInjectorRemap requires the arm64 thread-state ABI and
+// the arm64-only remap loader dylib. Provide symbols so linking succeeds; any
+// call fails with an explicit "arm64-only" error.
+// -----------------------------------------------------------------------------
+
+NSErrorDomain const MIMachInjectorRemapErrorDomain = @"MIMachInjectorRemapErrorDomain";
+
+@implementation MIMachInjectorRemap
+
++ (BOOL)injectToPID:(pid_t)pid
+        payloadPath:(NSString *)payloadPath
+        entrySymbol:(NSString *)entrySymbol
+              error:(NSError * _Nullable __autoreleasing * _Nullable)error {
+    (void)pid; (void)payloadPath; (void)entrySymbol;
+    if (error) {
+        *error = [NSError errorWithDomain:MIMachInjectorRemapErrorDomain
+                                     code:1
+                                 userInfo:@{
+            NSLocalizedDescriptionKey: @"MIMachInjectorRemap is only available on arm64 / arm64e."
+        }];
+    }
+    return NO;
+}
+
+@end
+
+#endif // __arm64__
