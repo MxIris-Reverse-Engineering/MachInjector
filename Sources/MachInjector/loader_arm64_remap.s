@@ -1,5 +1,6 @@
 // -----------------------------------------------------------------------------
-// loader_arm64_remap.s — pthread-bootstrap shim for MIMachInjectorRemap.
+// loader_arm64_remap.s — chained-fixup + pthread-bootstrap shim for
+// MIMachInjectorRemap.
 // -----------------------------------------------------------------------------
 //
 // This is NOT compiled into the MachInjector library binary the way the other
@@ -8,6 +9,29 @@
 // which the library ships as a bundled resource. MIMachInjectorRemap dlopens
 // that dylib in the injector, then `mach_vm_remap`s its __TEXT + __DATA
 // segments into the target process. See MIMachInjectorRemap.h for the reason.
+//
+// The stage-1 entry does two things, in order:
+//   1. Call apply_fixups() (loader_arm64_remap_fixup.c) so every chained
+//      LC_DYLD_CHAINED_FIXUPS slot in the payload is written with the
+//      correct raw or PAC-signed value. dyld normally does this at load
+//      time; mach_vm_remap skips dyld so we have to do it ourselves inside
+//      the target where the local PAC keys apply.
+//   2. Spawn a pthread via pthread_create_from_mach_thread whose start
+//      routine is `_pthread_thunk` (loader_arm64_remap_handoff.c). The
+//      thunk runs INSIDE the pthread — so it has TLS, and dispatch_once /
+//      pthread_mutex / anything libobjc's map_images path leans on
+//      behaves correctly — then replays dyld's runtime notifications for
+//      the payload (map_images + swift_register*) and tail-calls the
+//      real payload entry stored in `_cfg_pthread_start_addr`.
+//
+// Why the handoff runs in the pthread, not here on the raw mach thread:
+//   libobjc's map_images takes runtimeLock (a pthread mutex) and reaches
+//   into preopt_init (dispatch_once) + sel_registerNameNoLock (pthread
+//   TLS). On a raw mach thread none of those crash outright but they
+//   silently take the wrong branch — map_images returns without ever
+//   uniquing our selrefs, and the payload later blows up as
+//   `+[NSBundle (dynamic selector)]: unrecognized selector` on the very
+//   first dispatch_once + objc_msgSend.
 //
 // Why a real dylib rather than embedded shellcode:
 //   * The stage-1 entry needs to call pthread_create_from_mach_thread with a
@@ -40,6 +64,25 @@
     .globl _remap_stage1_entry
     .p2align 2
 _remap_stage1_entry:
+    // ---- Phase 1: apply_fixups(payloadBase, worklist, count) ------------
+    // Every LC_DYLD_CHAINED_FIXUPS slot in the remapped payload is either
+    // untouched (for plain rebase/bind) or PAC-signed here in the target so
+    // its authenticate ops in the payload's code succeed.
+    adrp    x0, _cfg_payload_base@PAGE
+    add     x0, x0, _cfg_payload_base@PAGEOFF
+    ldr     x0, [x0]
+
+    adrp    x1, _cfg_fixup_worklist@PAGE
+    add     x1, x1, _cfg_fixup_worklist@PAGEOFF
+    ldr     x1, [x1]
+
+    adrp    x2, _cfg_fixup_count@PAGE
+    add     x2, x2, _cfg_fixup_count@PAGEOFF
+    ldr     w2, [x2]
+
+    bl      _apply_fixups
+
+    // ---- Phase 2: pthread bootstrap -----------------------------------
     // x0 = &_cfg_pthread_out  (writable qword in __DATA)
     adrp    x0, _cfg_pthread_out@PAGE
     add     x0, x0, _cfg_pthread_out@PAGEOFF
@@ -47,10 +90,11 @@ _remap_stage1_entry:
     // x1 = NULL pthread_attr
     mov     x1, xzr
 
-    // x2 = *(_cfg_pthread_start_addr)  (patched: payload entry in target)
-    adrp    x2, _cfg_pthread_start_addr@PAGE
-    add     x2, x2, _cfg_pthread_start_addr@PAGEOFF
-    ldr     x2, [x2]
+    // x2 = _pthread_thunk (loader-internal wrapper — replays dyld runtime
+    // notifications on the pthread, then tail-calls the real payload entry
+    // stored in _cfg_pthread_start_addr).
+    adrp    x2, _pthread_thunk@PAGE
+    add     x2, x2, _pthread_thunk@PAGEOFF
 
     // x3 = *(_cfg_pthread_arg)         (patched: pointer to config page in target)
     adrp    x3, _cfg_pthread_arg@PAGE
@@ -82,6 +126,19 @@ _cfg_pthread_arg:
     .quad   0
     .globl _cfg_pthread_out
 _cfg_pthread_out:
+    .quad   0
+    // Chained-fixup configuration. Filled in by the injector before it
+    // remaps this loader into the target. All three slots are in the same
+    // __DATA page as the pthread config so the same mach_vm_write covers
+    // both blocks.
+    .globl _cfg_payload_base
+_cfg_payload_base:
+    .quad   0
+    .globl _cfg_fixup_worklist
+_cfg_fixup_worklist:
+    .quad   0
+    .globl _cfg_fixup_count
+_cfg_fixup_count:
     .quad   0
 
 #endif // __arm64__

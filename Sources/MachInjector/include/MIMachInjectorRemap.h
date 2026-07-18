@@ -47,10 +47,31 @@
  *   __attribute__((visibility("default")))
  *   void *my_payload_entry(void *arg);
  *
- * `arg` will be non-NULL and points at an
- * MIMachInjectorRemapPayloadConfig-shaped record in the target's address
- * space (see below). The pthread runs on a fully-initialized pthread with
- * TLS, so Foundation / Swift / os_log / dispatch are all safe from the entry.
+ * By the time the pthread reaches your entry, the loader has already:
+ *   * Applied every LC_DYLD_CHAINED_FIXUPS slot in the payload against the
+ *     target's PAC keys.
+ *   * Called libobjc's `map_images` on the payload's mach_header (so every
+ *     __objc_selrefs entry is uniqued against libobjc's canonical SEL
+ *     table, and the payload's classes / categories / protocols are
+ *     registered).
+ *   * Called libswiftCore's `swift_registerTypeMetadataRecords`,
+ *     `swift_registerProtocols`, and `swift_registerProtocolConformances`
+ *     on the payload's `__TEXT,__swift5_types` / `__swift5_protos` /
+ *     `__swift5_proto` ranges.
+ *
+ * In other words your entry sees a "fully mapped" runtime — as if dyld had
+ * loaded the image normally. All you have to do is run whatever the
+ * payload actually exists to do.
+ *
+ * `arg` is non-NULL and points at an MIMachInjectorRemapPayloadConfig
+ * record in the target's address space (see below). Payload code that
+ * only needs "libobjc + Swift are wired up, let me run" can ignore `arg`
+ * completely. Payload code that wants to inspect the payload's own
+ * mach_header, path, or metadata section ranges without re-parsing them
+ * can read those fields directly from the config.
+ *
+ * The pthread runs on a fully-initialized pthread with TLS, so Foundation
+ * / Swift / os_log / dispatch are all safe from the entry.
  *
  * Because the payload is remapped (not dlopened), dyld's constructor pass
  * does NOT run. Any state normally set up by
@@ -78,29 +99,15 @@
  *       uint64_t swift5ProtoEnd;
  *   };
  *
+ * The loader has already used every field to notify the runtime by the
+ * time your entry runs — the config is exposed here purely as
+ * introspection metadata for payloads that want it.
+ *
  * A typical entry:
  *
  *   void *my_payload_entry(void *arg) {
- *       MIMachInjectorRemapPayloadConfig *config = arg;
- *       // 1. Register Swift metadata sections with the runtime.
- *       swiftRegisterFn(config->swiftRegisterTypes,
- *                       (void*)config->swift5TypesBegin,
- *                       (void*)config->swift5TypesEnd);
- *       // …repeat for protos + conformances.
- *
- *       // 2. Tell libobjc about the image (nullptr for sectionLocationMetadata
- *       // makes dyld re-derive sections from the mach_header).
- *       struct _dyld_objc_notify_mapped_info info = {
- *           .mh = (const struct mach_header *)config->payloadMachHeader,
- *           .path = (const char *)config->payloadPath,
- *           .sectionLocationMetadata = NULL,
- *           .flags = 0
- *       };
- *       _dyld_objc_mark_image_mutable mark = ^(uint32_t idx) {};
- *       mapImagesFn(1, &info, mark);
- *
- *       // 3. Run whatever your payload actually does.
- *       my_real_initializer();
+ *       (void)arg;              // loader already did the runtime handoff
+ *       my_real_initializer();  // start whatever the payload exists to do
  *       return NULL;
  *   }
  *
