@@ -1,210 +1,192 @@
-# Strict-seatbelt payload runtime handoff
+# Strict-Seatbelt Payload Runtime Handoff
 
-## Context
+## 面向读者
 
-`MIMachInjectorRemap` bypasses `dlopen` by remapping a payload dylib's segments
-into a target process with `mach_vm_remap`, then jumping into it. `mach_vm_remap`
-skips every step dyld normally performs at load time: no chained-fixup
-application, no libobjc `map_images` notification, no libswiftCore metadata
-registration, and — importantly — no `__attribute__((constructor))` dispatch.
+- 想理解 loader 里 `pthread_thunk` 存在的意义；
+- 要改 `perform_runtime_handoff` 的顺序或添加新的 runtime notification；
+- 想知道"为什么 payload 只需要实现一个 `void *(*)(void *)` 就够了、之前不是这样的"。
 
-Applying chained fixups is easy; the loader owns that path
-(`loader_arm64_remap_fixup.c`). Replaying the runtime notifications is the
-tricky part, because they have to run **inside the target** after the payload
-is mapped, using the target's per-process libobjc / libswiftCore state.
+先读 [`RemapArchitecture.md`](RemapArchitecture.md) 拿到整体图，再读这份看 handoff 的具体设计与历史演化。
 
-Until this design landed, the replay code lived in each payload's entry
-function. That worked, but shipped the injection mechanism's ABI knowledge
-across the boundary between "injector platform" and "payload author".
+## 背景
 
-## Payload contract
+`MIMachInjectorRemap` 用 `mach_vm_remap` 把 payload segment 投射到 target，完全绕过 dyld。dyld 平时在 load time 会：
 
-A payload is a dylib whose entry point implements one function with a single
-signature. That's it:
+1. 应用 chained fixups（用 target 的 PAC keys 签指针）；
+2. 调 libobjc `map_images`（uniquify `__objc_selrefs`、注册 classes / categories / protocols）；
+3. 通过 objc 或 Swift add-image hook 通知 libswiftCore（注册 Swift type metadata / protocols / conformances）；
+4. 调 payload 的 `__attribute__((constructor))`；
+5. 让 payload 的代码开始跑。
 
-```c
-void *my_payload_entry(void *arg) {
-    (void)arg;             // loader already performed the runtime handoff
-    my_real_initializer(); // start whatever the payload exists to do
-    return NULL;
-}
-```
+我们**跳过了整个 dyld**，所以 1-4 都要在 target 里手工补上（第 5 步是 `mach_vm_remap` 的直接结果）。第 1 步在 stage1 asm + `apply_fixups` 里完成（详见 [`ChainedFixupsPipeline.md`](ChainedFixupsPipeline.md)）。第 2-3 步就是本文档主题——**runtime handoff**。第 4 步（constructor）由 payload 自己在 entry 里显式重跑（我们**不代替 payload 做**，因为不同 payload 的 constructor 不一样，且很多"constructor" 只是 Swift `@_cdecl` 的初始化，payload 里 call 一次就行）。
 
-`arg` is the `MIMachInjectorRemapPayloadConfig *` the injector allocated in the
-target's address space (raw struct declared in `MIMachInjectorRemap.h`).
-Payloads that don't need it — most of them — can ignore it. The loader has
-already:
+## Handoff 到底做了什么
 
-- Rewritten every `LC_DYLD_CHAINED_FIXUPS` slot in the payload with values
-  signed under the target's PAC keys.
-- Called libobjc's `map_images` for the payload, uniquing `__objc_selrefs`,
-  registering classes / categories / protocols, and forwarding to any warm
-  Swift add-image hook.
-- Called `swift_registerTypeMetadataRecords` / `swift_registerProtocols` /
-  `swift_registerProtocolConformances` for the payload's `__swift5_*`
-  sections.
+`perform_runtime_handoff(config)`（在 `loader_arm64_remap_handoff.c` 里）分四步：
 
-By the time control reaches the payload entry, the runtime looks — from the
-payload's perspective — indistinguishable from a normal `dlopen`-loaded
-image. The one thing that never runs is dyld's constructor pass; the entry
-function is responsible for whatever the payload's constructor would have
-done (typical case: call the module's Swift `@_cdecl` initializer).
+**Step 1**：libobjc `map_images(1, &mappedInfo, &markBlock)`
+- 传入 payload 的 mach_header + path（`sectionLocationMetadata = NULL`，让 libobjc 走 fallback）
+- 传入手搓的 mark block（详见 [`LoaderDylibInternals.md`](LoaderDylibInternals.md) 的 handoff 章节）
+- libobjc 干的事：
+  - Uniquify `__objc_selrefs`（否则第一个 objc_msgSend 就崩）
+  - 注册 payload 里的 classes、categories、protocols
+  - 若有 warm Swift add-image hook 已注册，fan-out 通知它（这是 fallback 路径的一部分）
 
-## Why the handoff runs in a pthread, not on the raw mach thread
+**Step 2**：`swift_registerTypeMetadataRecords(config->swift5TypesBegin, config->swift5TypesEnd)`
+- 传入 `__TEXT,__swift5_types` section 的 target-space 范围
+- libswiftCore 干的事：把这个范围登记到 `ConcurrentReadableArray<TypeMetadataRecord>`（内部 push_back，无 dedupe）
+- **冷 Swift runtime**：这是主注册通道
+- **热 Swift runtime**（step 1 已 fan-out 过）：这是冗余但廉价的 push_back
 
-`mach_vm_remap` injection uses `pthread_create_from_mach_thread` to move
-execution from the raw mach thread the injector spawns (via
-`thread_create_running`) onto a real pthread with TLS. The naive placement
-for the handoff — inside stage1 asm, right after `apply_fixups` — is wrong.
+**Step 3**：`swift_registerProtocols(...swift5Protos...)`
+- 同理，对 `__TEXT,__swift5_protos` section
 
-libobjc's `map_images` code path:
+**Step 4**：`swift_registerProtocolConformances(...swift5Proto...)`
+- 同理，对 `__TEXT,__swift5_proto` section（名字里少个 s 是 dyld / Swift runtime 历史遗留，本该叫 conformances）
 
-- Takes `runtimeLock` — a `pthread_mutex_t`.
-- On the first call in a process, runs `preopt_init()` — behind a
-  `dispatch_once`.
-- Uses `sel_registerNameNoLock`, which touches pthread-primitive tables.
+## 为什么 handoff 要在 pthread 里，不能在 raw mach thread 里
 
-None of those primitives assert on a raw mach thread. They all fall through
-their fast paths, silently taking the "no pthread state" branch. `map_images`
-appears to succeed, but `__objc_selrefs` is never uniqued. The payload runs a
-short while, hits its first `objc_msgSend` (typically inside a `dispatch_once`
-that Swift Foundation uses during `Bundle.main` initialization), and crashes
-as:
+这条 invariant 踩过深坑，专门写清楚。
+
+**背景**：`MIMachInjectorRemap` 的 stage2 用 `pthread_create_from_mach_thread` 从原始 mach thread 拉起一条 pthread。**raw mach thread 没 TLS**（`TPIDRRO_EL0 = 0`），**pthread 有完整 TLS**。
+
+**libobjc 的 `map_images` 内部依赖**：
+
+- 拿 `runtimeLock`（一个 pthread_mutex_t）
+- 第一次调时走 `preopt_init()`，里面有 `dispatch_once`
+- 调 `sel_registerNameNoLock`，用 pthread-primitive tables 做 selector cache
+
+这些**在 raw mach thread 上不会立刻崩**，会**静默走错分支**：
+- `pthread_mutex_lock` 内部检查 pthread self 是不是当前线程，raw mach thread 上 pthread self 是 garbage，某些 fast path 可能刚好 pass
+- `dispatch_once` 用 pthread TLS 存 slow path 状态，raw mach thread 上会认为 "not done yet"，但一次执行完的 state 存不进 TLS，下次再进 dispatch_once 会重复初始化
+- `sel_registerNameNoLock` 内部有 pthread-per-thread selector cache，raw mach thread 上 cache lookup 全 miss，逻辑上走 fresh registration，但把 result 存进 cache 时又对不上号
+
+结果：**`map_images` 会正常 return，但 `__objc_selrefs` 里没有一项被 uniquify**。payload 后续跑 Swift Foundation 初始化，触发 `Bundle.main` 相关的 `dispatch_once`，然后 `objc_msgSend(NSBundle, someSelector)`——这个 someSelector 是 payload 里 raw string ptr，不是 uniqued SEL，libobjc dispatch 失败：
 
 ```
 +[NSBundle (dynamic selector)]: unrecognized selector sent to class 0x1f4484f58
 ```
 
-The crash is far from the root cause. Diagnosing it takes hours if you don't
-already know the pattern.
+崩溃堆栈里全是 Foundation / dispatch，看不出跟 injection 有关。**这个症状离 root cause 十万八千里**——真正的原因是 `map_images` 跑在了错误的线程上下文。
 
-Fix: stage1 does only `apply_fixups`, then calls
-`pthread_create_from_mach_thread` with the loader's own `_pthread_thunk` as
-start_routine. The thunk runs on the pthread, does the runtime handoff there,
-and tail-calls the real payload entry.
+**正解**：stage1 asm 只做 `apply_fixups`（纯 `__builtin_ptrauth_*` intrinsic + 算术，无 TLS 依赖）。所有需要 pthread TLS / mutex / dispatch 的操作**全部推到 pthread 里**由 `pthread_thunk` 完成。
 
-## Loader-internal control flow
+具体 loader 里就是：
 
 ```
-stage1_entry (raw mach thread, loader __TEXT):
-  apply_fixups()                                      -> Phase 1
-  pthread_create_from_mach_thread(_, _,
-      pthread_thunk,                                  -> Phase 2 start_routine
-      config)
-  spin (raw mach thread cannot ret; injector will terminate it later)
+stage1 (raw mach thread):
+  apply_fixups()                                    ← 纯算术，raw thread 上安全
+  pthread_create_from_mach_thread(..., pthread_thunk, config)
+  spin forever until injector kills us
 
-pthread_thunk (pthread, loader __TEXT):
-  perform_runtime_handoff(config)                     -> Phase 3
+pthread_thunk (in pthread, has TLS):
+  perform_runtime_handoff(config)                   ← libobjc / libswiftCore 依赖的 TLS 都有了
   entry = sign(cfg_pthread_start_addr, IA + 0)
-  return entry(config)                                -> Phase 4, tail-call
+  return entry(config)                              ← tail-call payload entry
 ```
 
-- Stage1 asm lives in `loader_arm64_remap.s`. It reads its four `_cfg_*` slots
-  from the loader's `__DATA` segment; the injector patches those slots with
-  `mach_vm_write` after `mach_vm_remap`ping the loader.
-- `pthread_thunk` and `perform_runtime_handoff` live in
-  `loader_arm64_remap_handoff.c`. Both are compiled into the same standalone
-  dylib the loader header (`loader_arm64_remap_dylib.h`) embeds as bytes.
-- `_cfg_pthread_start_addr` now stores the raw address of the payload entry.
-  The thunk signs it (IA + const 0) and calls it.
+## Payload contract 变迁史
 
-## PAC handling in `perform_runtime_handoff`
+Runtime handoff 的实现位置换过三次。每次换都对应一次踩坑 → 修复。
 
-Two things get signed at runtime:
+### 第一版：Handoff 在 raw mach thread 上（`stage1 asm` 内直接调用）
 
-**Function pointers coming from injector-side `dlsym`**. The injector calls
-`ptrauth_strip(...)` on every function pointer it writes into the config
-struct, because the injector's PAC keys are not the target's. Inside the
-target, we sign with the arm64e ABI default schema for function-pointer call
-sites — IA + const 0:
+**做法**：早期 stage1 汇编里 `apply_fixups` 之后直接 `bl map_images`。省一次 pthread bootstrap。
 
+**结果**：上一节描述的静默 selref 失败。`+[NSBundle (dynamic selector)]` 崩，反查半天不知所以。
+
+### 第二版：Handoff 在 payload 的 entry 函数里
+
+**做法**：stage1 asm 只 `apply_fixups` + `pthread_create_from_mach_thread`。start_routine 是 payload 自己的 entry，比如 `runtime_viewer_server_start`。payload 的 entry **手工做完整个 runtime handoff**：
+- 复刻 `MIMachInjectorRemapPayloadConfig` 结构（因为 payload 不 include MachInjector.h）
+- 复刻 `_dyld_objc_notify_mapped_info` 结构
+- 复刻 arm64e block layout
+- 手动 `ptrauth_sign_unauthenticated` mark block invoke（还得考虑 double-sign 陷阱）
+- 手动 `ptrauth_sign_unauthenticated` 从 injector 传来的 raw function pointer（`map_images`、三个 `swift_register*`）
+- 顺序调 `map_images` → `swift_register*`
+- 然后 tail-call `swift_initializeRuntimeViewerServer`
+
+**问题**：每个 payload 都要复制粘贴一大堆 ABI 代码，跟 payload 本身的业务无关。Apple 侧任何 ABI 微调（`map_images` signature 加参数、`_dyld_objc_notify_mapped_info` 加字段、Swift register API 数量变化）都要同步改所有 payload。这些是 injection 机制的固有职责，应该由 MachInjector 承担。RuntimeViewerServer 的 `main.m` 一度到 167 行，全部是 ABI dance 代码。
+
+### 第三版（当前）：Handoff 在 loader 的 `pthread_thunk` 里
+
+**做法**：给 loader 加第三份源文件 `loader_arm64_remap_handoff.c`，里面有：
+- `pthread_thunk`：pthread 的 start_routine，先做 handoff，再 tail-call payload entry
+- `perform_runtime_handoff`：包含所有 mark block signing / map_images call / swift_register\* call 的逻辑
+- 各种手搓 struct / signing helper
+
+Stage1 asm 的 `pthread_create_from_mach_thread` 的 start_routine 从 `_cfg_pthread_start_addr` 改成 loader-internal 的 `_pthread_thunk`。`_cfg_pthread_start_addr` 保留，pthread_thunk 从这里读 payload entry 的 raw address，签 IA + 0 后 tail-call。
+
+**Payload contract 现在**：
 ```c
-MIRemapMapImagesFunction mapImages =
-    (MIRemapMapImagesFunction)__builtin_ptrauth_sign_unauthenticated(
-        (void *)(uintptr_t)config->mapImages, ptrauth_key_asia, 0);
+__attribute__((visibility("default"), used))
+void *my_payload_entry(void *arg) {
+    (void)arg;              // loader 已经完成 runtime handoff
+    my_real_initializer();  // 直接跑业务
+    return NULL;
+}
 ```
 
-**The `mark` block's `invoke` field**. libobjc's block-invoke call sites use
-the clang default `PointerAuthSchema(ASIA, addr_diverse=true,
-Discrimination::None)`. We build the block on the stack — its `invoke`
-storage address is the diversifier. `strip` before re-signing is required
-because `(void *)MIRemapHandoffMarkInvoke` triggers clang's implicit `paciza`
-(arm64e ABI signs every function-pointer R-value); signing again without
-stripping produces double-signed garbage that libobjc's `autia` fails on.
+RuntimeViewerServer 的 `main.m` 从 167 行缩到 48 行。
 
-```c
-markBlock.invoke = __builtin_ptrauth_sign_unauthenticated(
-    __builtin_ptrauth_strip((void *)MIRemapHandoffMarkInvoke, ptrauth_key_asia),
-    ptrauth_key_asia,
-    __builtin_ptrauth_blend_discriminator(&markBlock.invoke, 0));
-```
+## 关键设计选择
 
-The block's `isa` and `descriptor` are never dereferenced on this hot path
-(objc4 goes straight from `mark` to `invoke`), so `isa = NULL` and
-`descriptor = &fileprivate-const-struct` are safe. No dependency on
-`_NSConcreteGlobalBlock` or the blocks runtime.
+**选择 1**：`perform_runtime_handoff` 里 `map_images` 在 `swift_register*` 之前
 
-## Ordering
+理由：
+1. dyld 自己（`DyldRuntimeState.cpp`）就是这个顺序——先 objc mapped3 callback，再 Swift add-image hook；
+2. libobjc `map_images` 里会 fan-out 给已注册的 Swift add-image hook（`swift/stdlib/public/runtime/ImageInspectionMachO.cpp:237-249`），所以热 Swift runtime 会通过这条路径自动拿到 payload；
+3. 反过来的话，`swift_register*` 会先 push_back 到 `ConcurrentReadableArray`，接着 `map_images` fan-out 时又 push_back 一次—— `ConcurrentReadableArray` 不 dedupe，double push 不 crash 但浪费内存。
 
-`perform_runtime_handoff` calls `map_images` before the `swift_register*`
-trio. This matches dyld's own order (`dyld/DyldRuntimeState.cpp` fires the
-objc `mapped3` callback before Swift's add-image hook). It also lets a warm
-Swift runtime pick up the payload for free — libobjc, as part of
-`map_images`, forwards to any Swift add-image hook already registered via
-`objc_addLoadImageFunc2`
-(`swift/stdlib/public/runtime/ImageInspectionMachO.cpp:237-249`).
+**选择 2**：mark block 手搓，不用 `^{...}` 语法
 
-The explicit `swift_register*` calls are the primary registration path when
-the Swift runtime is still cold; when it's warm, they degrade to a cheap
-redundant `push_back` into `ConcurrentReadableArray`
-(`swift/stdlib/public/runtime/MetadataLookup.cpp:368-379`), no dedup. Safe
-either way.
+理由（详见 [`LoaderDylibInternals.md`](LoaderDylibInternals.md) 里"为什么 mark block 手搓"）：
+- clang block literal 会生成 `_NSConcreteGlobalBlock` 引用（injector 里 fixup 后指向 injector 的 libSystem）；
+- descriptor 指针在 clang literal 里是 signed pointer（signed by injector），target 里 auth 失败；
+- 手搓的话所有 pointer 在 runtime 里填，没有 injector 侧 fixup 参与。
 
-Reversing the order would double-register the payload's `__swift5_types`
-range in the same array. Not a crash, but wasteful.
+**选择 3**：block invoke 的签名用 `blend(&invoke, 0)` 作 modifier
 
-## Trade-offs and non-goals
+理由：clang 默认的 block invoke schema 是 `PointerAuthSchema(ptrauth_key_asia, address_diversify=true, Discrimination::None)`。**address_diversify** 意味着 modifier 里混入 storage 地址；**Discrimination::None** 意味着不加 constant。所以 modifier = `blend(storage_addr, 0)` = `storage_addr` 本身。我们的 storage = 栈上 `markBlock.invoke`，`&markBlock.invoke` 就是那个地址。
 
-**Loader dylib size grows**. Adding `loader_arm64_remap_handoff.c` to the
-compiled dylib bumps `loader_arm64_remap_dylib.h` from ~50KB to ~800KB. The
-injector still ships that as a single string literal, so build-time only.
-Runtime cost is the same three-file compile.
+**选择 4**：函数指针 R-value 语义先 `strip` 再 sign
 
-**arm64 slice compiles but does nothing**. `#ifdef __arm64__` gates the
-whole file. On arm64 (non-e), `__has_feature(ptrauth_intrinsics)` is false
-and the signing calls fall through to plain casts. That branch never runs
-in production — arm64e daemons stay on arm64e — but it needs to compile so
-the fat loader dylib can link.
+`(void *)MIRemapHandoffMarkInvoke` 在 arm64e ABI 下会隐式 `paciza`（sign IA + 0）。如果不 strip 直接进 `sign_unauthenticated`，就是 double sign，target 里 `autia` 会失败。详见 [`PACHandbookForRemap.md`](PACHandbookForRemap.md) "Double-sign 陷阱" 一节。
 
-**Not a general-purpose plugin API**. The payload contract is intentionally
-minimal: one C entry, no callback tables, no version negotiation. Anything
-richer (post-handoff hooks, teardown callbacks, capability queries) belongs
-in the payload's own protocol with the injector, not in the loader.
+**选择 5**：pthread_thunk tail-call payload entry
 
-## Files
+`return entry(arg);` 被 clang `-Oz` 优化成 tail-call（`braaz`）。栈帧不留下，从 pthread_start 视角看，pthread_thunk 直接返回了它调用的 payload entry 的返回值。这样 stack trace 里 pthread_thunk 就消失了，crash log 里看不到我们的 helper。
 
-- `Sources/MachInjector/MIMachInjectorRemap.h` — payload contract + example.
-- `Sources/MachInjector/loader_arm64_remap.s` — stage1 shim; Phase 2 uses
-  `_pthread_thunk` as start_routine.
-- `Sources/MachInjector/loader_arm64_remap_fixup.c` — chained-fixup applier
-  run in Phase 1 on the raw mach thread.
-- `Sources/MachInjector/loader_arm64_remap_handoff.c` — pthread thunk and
-  runtime-notification replayer added in this design.
-- `Sources/MachInjector/build_loader.sh` — assembles the three sources into
-  `loader_arm64_remap.dylib` and regenerates the embedded byte header.
+## 出错排查
 
-## History
+**症状：payload 起来立刻崩，PC 在 `_pthread_start` 之后 payload 内部**  
+→ pthread_thunk 里 `perform_runtime_handoff` 崩了。debug：改 `perform_runtime_handoff` 里加 `os_log` 输出，看到最后一条日志在哪一步之前。
 
-The runtime-handoff logic went through three homes before landing here:
+**症状：注入后 payload 运行一小段时间，第一次 `objc_msgSend` 时崩 `unrecognized selector`**  
+→ `map_images` 没成功 uniquify。检查：
+  - loader 版本是不是最新（`build_loader.sh` 跑过、`MIMachInjectorRemap.o` 重编过）
+  - `sectionLocationMetadata` 是不是 NULL（我们的 fallback path）
+  - `flags` 是不是 0
 
-1. **Inline in stage1 asm, on the raw mach thread.** Silent selref-uniquify
-   failure. Debugged from an `unrecognized selector` symptom.
-2. **Inside the payload's entry function, on the pthread.** Worked, but
-   duplicated across every payload and coupled payload authors to dyld ABI
-   changes.
-3. **Inside the loader's `pthread_thunk`, on the pthread.** Current design.
-   Payload contract stays minimal; ABI changes are one-file fixes in
-   MachInjector.
+**症状：`__objc_selrefs` 是空的（用 lldb 看）**  
+→ 说明 `map_images` 根本没被调用，或者 mark block invoke 签名错。检查 mark block signing 是不是 strip 了、是不是用 `blend(&invoke, 0)` 作 modifier。
 
-Related project-side write-up:
-`RuntimeViewer/Documentations/ResolvedIssues/2026-07-18-strict-seatbelt-payload-runtime-handoff.md`.
+**症状：Swift class metadata 找不到**  
+→ `swift_registerTypeMetadataRecords` 没被调用。检查 config 里 `swift5TypesBegin` / `swift5TypesEnd` 是不是正确指向 payload `__TEXT,__swift5_types` 范围。可以用 `otool -l` 看 payload 里这个 section 存在且非空。
+
+**症状：Swift Task 起来后崩**  
+→ 可能是 Swift protocol conformance 找不到——检查 `swift_registerProtocolConformances` 的 range 是不是对（`__TEXT,__swift5_proto`，不是 `__swift5_protos`）。
+
+## Payload 作者需要注意什么
+
+1. **entry symbol 必须 exported**（`__attribute__((visibility("default"), used))`）。injector 从 payload 里 `dlsym` entry symbol；
+2. **entry signature 必须是 `void *(*)(void *)`**。传入 `arg` 是 `MIMachInjectorRemapPayloadConfig *`，多数 payload 可忽略；
+3. **entry 里要跑 payload 的初始化逻辑**（`__attribute__((constructor))` 里做的事）。因为 dyld 不跑 constructor，payload 需要自己在 entry 里做一次；
+4. **avoid triggering payload constructor in injector**：payload 的 constructor 在 injector 里 `dlopen(payload)` 时会跑一次（injector 只是为了拿 mach-header 和 entry symbol 地址）。给 constructor 加一个 env-var 门（比如 `RUNTIMEVIEWERSERVER_SKIP_CONSTRUCTOR`），让它 skip inject 用的 dlopen 但正常跑其他场景。
+
+## 相关
+
+- [`RemapArchitecture.md`](RemapArchitecture.md) — 端到端总览
+- [`LoaderDylibInternals.md`](LoaderDylibInternals.md) — loader dylib 内部构造（包含 handoff 里 mark block、schema 手搓的完整细节）
+- [`PACHandbookForRemap.md`](PACHandbookForRemap.md) — PAC 备忘（Double-sign 陷阱 / 三种函数指针 schema 说明在这里）
+- [`ChainedFixupsPipeline.md`](ChainedFixupsPipeline.md) — chained fixup 走完之后才轮到 handoff

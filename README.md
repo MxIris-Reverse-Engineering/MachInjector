@@ -175,6 +175,8 @@ if (!ok) NSLog(@"Failed: %@", error);
 
 The path ships a small ad-hoc-signed loader dylib as embedded bytes and dumps it to `/private/tmp/MIMachInjectorRemap_loader_XXXXXX.dylib` at injection time; the file is unlinked before the API returns.
 
+**For contributors and maintainers**: the remap path is intricate — cross-process PAC signing, chained-fixup replay, libobjc / libswiftCore runtime notifications, and a 13-step VM-plumbing recipe. Before changing any of `Sources/MachInjector/MIMachInjectorRemap.m`, `Sources/MachInjector/loader_arm64_remap.s`, `Sources/MachInjector/loader_arm64_remap_fixup.c`, or `Sources/MachInjector/loader_arm64_remap_handoff.c`, read [`Documentations/Design/RemapArchitecture.md`](Documentations/Design/RemapArchitecture.md) — it is the entry-point document that then branches into four topical deep-dives (chained fixups, loader dylib internals, arm64e PAC, payload runtime handoff). Every source file's top-of-file docblock links back to the relevant document.
+
 ## Architecture
 
 | | `MachInjector` (sync) | `MachInjectorAsync` (V2) |
