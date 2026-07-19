@@ -2,24 +2,41 @@
 // loader_arm64_remap_fixup.c — chained-fixup applier for MIMachInjectorRemap.
 // -----------------------------------------------------------------------------
 //
-// arm64e user-space PAC keys are per-process; a signed pointer produced by the
-// injector process cannot be authenticated in the target. dyld normally re-signs
-// chained fixups at load time; a mach_vm_remap-based injection skips dyld
-// entirely, so the payload arrives with every LC_DYLD_CHAINED_FIXUPS slot still
-// unresolved. We resolve them in the target process instead: MIMachInjectorRemap
-// walks the payload's chained-fixup tables in the injector, serialises them
-// into a MIRemapFixupEntry[] work list, and mach_vm_remaps that work list next
-// to the payload. stage1_entry (loader_arm64_remap.s) invokes apply_fixups()
-// below before spawning the pthread that jumps to the payload entry, so the
-// applier runs inside the target where __builtin_ptrauth_sign_unauthenticated
-// resolves against the target's PAC keys and the resulting signed pointers
-// pass authentication normally.
+// SEE ALSO (before touching this file)
+//   Documentations/Design/ChainedFixupsPipeline.md — bit encoding of
+//     DYLD_CHAINED_PTR_ARM64E_USERLAND24, the injector-side parser, and how
+//     this file's apply_fixups() consumes the resulting work list.
+//   Documentations/Design/PACHandbookForRemap.md — why PAC signing must
+//     happen in the target and not the injector.
+//   Documentations/Design/LoaderDylibInternals.md — how this .c is compiled
+//     (freestanding, no libc) and how it fits alongside the other loader
+//     sources.
 //
-// apply_fixups() must NOT call any external symbol. The GOT it would traverse
-// is precisely what we are about to fix up, so the first stub call would
-// authenticate an uninitialised slot and trap. Everything here is inlined
-// arithmetic and __builtin_ptrauth_* intrinsics (which emit pac* instructions
-// directly, no library call).
+// PROBLEM
+//   arm64e user-space PAC keys are per-process; a signed pointer produced by
+//   the injector cannot be authenticated in the target. dyld normally re-signs
+//   chained fixups at load time; a mach_vm_remap-based injection skips dyld
+//   entirely, so the payload arrives with every LC_DYLD_CHAINED_FIXUPS slot
+//   still unresolved.
+//
+// SOLUTION
+//   Resolve them in the target process. MIMachInjectorRemap walks the
+//   payload's chained-fixup tables in the injector, serialises them into a
+//   MIRemapFixupEntry[] work list, and mach_vm_remaps that work list next to
+//   the payload. stage1_entry (loader_arm64_remap.s) invokes apply_fixups()
+//   below before spawning the pthread that jumps to the payload entry, so
+//   the applier runs inside the target where __builtin_ptrauth_sign_
+//   unauthenticated resolves against the target's PAC keys and the resulting
+//   signed pointers pass authentication normally.
+//
+// COMPILE CONSTRAINTS (enforced by build_loader.sh flags)
+//   apply_fixups() must NOT call any external symbol. The GOT it would
+//   traverse is precisely what we are about to fix up, so the first stub
+//   call would authenticate an uninitialised slot and trap. Everything here
+//   is inlined arithmetic and __builtin_ptrauth_* intrinsics (which emit
+//   pac* instructions directly, no library call). Also runs on a raw mach
+//   thread with no TLS: -fno-stack-protector suppresses __stack_chk_guard
+//   access that would trap.
 
 #ifdef __arm64__
 

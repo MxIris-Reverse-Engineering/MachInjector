@@ -3,6 +3,14 @@
 // MIMachInjectorRemap.
 // -----------------------------------------------------------------------------
 //
+// SEE ALSO (before touching this file)
+//   Documentations/Design/LoaderDylibInternals.md — line-by-line reading of
+//     this stage1 asm, PC-relative resolution across mach_vm_remap, __DATA
+//     configuration-slot layout, and why the loader is a real dylib rather
+//     than embedded shellcode.
+//   Documentations/Design/RemapArchitecture.md — where this shim sits in
+//     the overall injection data flow.
+//
 // This is NOT compiled into the MachInjector library binary the way the other
 // loader_arm64*.s files are (via `extern char __shellcode_start[]`). Instead
 // it is assembled + linked into a standalone dylib (`loader_arm64_remap.dylib`)

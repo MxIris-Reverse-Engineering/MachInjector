@@ -138,6 +138,51 @@
  *   15    Failed to convert thread state (arm64e ptrauth)
  *   16    Failed to start remote mach thread
  *
+ * Debug hints by code (where to start looking when you hit one):
+ *   1-2   Disk full / SIP hardened /private/tmp / codesign broken by a
+ *         hostile hook. Fresh reboot usually rules disks out.
+ *   3     `build_loader.sh` was never run OR the injector's
+ *         `MIMachInjectorRemap.o` predates the current
+ *         `loader_arm64_remap_dylib.h`. Touch MIMachInjectorRemap.m and
+ *         rebuild.
+ *   4-5   Payload path wrong, payload lacks an arm64e slice, payload's
+ *         entry symbol misspelled, or entry symbol has C++ mangling that
+ *         `dlsym` won't resolve (declare it `extern "C"` /
+ *         `__attribute__((visibility("default")))`).
+ *   6     Payload has more than 16 segments (unusual — bump the local
+ *         array size in `+ injectToPID:`) OR a segment with the same
+ *         name as SEG_LINKEDIT / SEG_PAGEZERO that's meaningful.
+ *   7-8   libswiftCore not installed OR OS updated and renamed symbols.
+ *         Confirm with `dlsym(handle, "swift_registerTypeMetadataRecords")`
+ *         from a small stand-alone process.
+ *   9     dyld gAPIs table layout changed between OS versions. See
+ *         FindLibObjCMapImages heuristic — the 3-consecutive-qword scan
+ *         window might need re-tuning. Enable the diag log and look at
+ *         the step4 candidate list.
+ *   10    Injector lacks task_for_pid. On modern macOS: SIP off + running
+ *         as root, OR `com.apple.system-task-ports.debug` entitlement +
+ *         `Developer Mode` on for the injector's audit token, OR use the
+ *         helper daemon pattern in Example/.
+ *   11-12 Target process died between task_for_pid and mach_vm_allocate,
+ *         OR target's ASLR left no contiguous span (rare).
+ *   13-14 Target's VM is full, OR the source pages in the injector are
+ *         no longer readable (dyld unloaded a dependency). Never dlclose
+ *         payload / loader in the injector — protection changes leak
+ *         through the shared mapping.
+ *   15    Kernel-side thread_convert_thread_state failure — extremely
+ *         unusual; likely a kernel bug or an incompatible OS release.
+ *         Diagnose with kext logging.
+ *   16    thread_create_running failed — target rejected the ARM
+ *         thread state we built. Likely PC address arithmetic wrong
+ *         (loaderRemoteBase + stage1Offset) or SP not aligned.
+ *
+ * When a payload runs but the TARGET crashes shortly after with
+ * `+[<SomeClass> (dynamic selector)]: unrecognized selector`, the fault
+ * is almost always that `map_images` never uniqued the payload's selrefs.
+ * See Documentations/Design/StrictSeatbeltPayloadRuntimeHandoff.md — the
+ * usual cause is stale loader shellcode from before pthread_thunk was
+ * added.
+ *
  * =============================================================================
  * PLATFORM SUPPORT
  * =============================================================================
@@ -159,18 +204,48 @@ FOUNDATION_EXPORT NSErrorDomain const MIMachInjectorRemapErrorDomain
 /// are 64-bit unsigned integers. Addresses live in the target's virtual space,
 /// except the function pointers which come from the shared cache and thus
 /// share the same slide across processes.
+///
+/// By the time the payload entry sees this, the loader has already used every
+/// field to complete the runtime handoff — it's exposed here as introspection
+/// metadata for payloads that want to reason about their own image. All
+/// function-pointer fields are stripped of PAC bits by the injector; if the
+/// payload wants to CALL any of them itself it must re-sign with the target's
+/// keys (see Documentations/Design/PACHandbookForRemap.md).
 typedef struct {
+    /// libobjc `map_images` in the target's address space (PAC-stripped raw
+    /// address). Loader already called it during handoff; usually not needed
+    /// by payload code.
     uint64_t mapImages;
+    /// libswiftCore `swift_registerTypeMetadataRecords` (PAC-stripped raw
+    /// address).
     uint64_t swiftRegisterTypes;
+    /// libswiftCore `swift_registerProtocols` (PAC-stripped raw address).
     uint64_t swiftRegisterProtocols;
+    /// libswiftCore `swift_registerProtocolConformances` (PAC-stripped raw
+    /// address).
     uint64_t swiftRegisterConformances;
+    /// Mach-header of the payload remapped in the target's address space —
+    /// equivalent to the injector-side `_dyld_get_image_header` result but
+    /// for the target.
     uint64_t payloadMachHeader;
+    /// C-string (null-terminated) of the payload's filesystem path, stored
+    /// on the same config page in the target's address space.
     uint64_t payloadPath;
+    /// `__TEXT,__swift5_types` section begin address in the target. Zero if
+    /// the payload has no such section (pure ObjC payload).
     uint64_t swift5TypesBegin;
+    /// `__TEXT,__swift5_types` section end address (exclusive) in the target.
     uint64_t swift5TypesEnd;
+    /// `__TEXT,__swift5_protos` section begin address in the target. Zero if
+    /// absent.
     uint64_t swift5ProtosBegin;
+    /// `__TEXT,__swift5_protos` section end address (exclusive) in the target.
     uint64_t swift5ProtosEnd;
+    /// `__TEXT,__swift5_proto` section begin address in the target (protocol
+    /// *conformances* — the missing `s` is a dyld / Swift runtime historical
+    /// artifact). Zero if absent.
     uint64_t swift5ProtoBegin;
+    /// `__TEXT,__swift5_proto` section end address (exclusive) in the target.
     uint64_t swift5ProtoEnd;
 } MIMachInjectorRemapPayloadConfig
     NS_SWIFT_NAME(MachInjectorRemapPayloadConfig);

@@ -1,16 +1,82 @@
 /*
- * MIMachInjectorRemap — mach_vm_remap-based dylib injection.
- * See MIMachInjectorRemap.h for the design writeup and error code table.
+ * =============================================================================
+ * MIMachInjectorRemap.m — mach_vm_remap-based dylib injection (injector side).
+ * =============================================================================
+ *
+ * This file is the ENTIRE injector-side of the remap path. It runs in the
+ * injector process and does all the VM plumbing needed to project a payload
+ * dylib into a target process WITHOUT going through the target's dyld:
+ *   - Enumerate + remap the payload's segments into the target
+ *   - Enumerate + remap the loader dylib's segments into the target
+ *   - Parse LC_DYLD_CHAINED_FIXUPS off the payload FILE and serialise a work
+ *     list the loader's apply_fixups() will replay in the target
+ *   - Locate libobjc's map_images function via dyld's gAPIs table
+ *   - Resolve Swift metadata register APIs via dlsym on libswiftCore
+ *   - Patch the loader's __DATA config slots with target-space addresses
+ *   - Spawn a raw mach thread in the target aimed at the loader's stage1 entry
+ *
+ * The high-level pipeline is documented in
+ *     Documentations/Design/RemapArchitecture.md
+ * (start there when reading this file for the first time). Sub-topics:
+ *     Documentations/Design/ChainedFixupsPipeline.md
+ *     Documentations/Design/LoaderDylibInternals.md
+ *     Documentations/Design/PACHandbookForRemap.md
+ *     Documentations/Design/StrictSeatbeltPayloadRuntimeHandoff.md
+ *
+ * =============================================================================
+ * FUNCTION MAP (for readers navigating this file)
+ * =============================================================================
+ *
+ * Segment plumbing
+ *   EnumerateSegments     — walk LC_SEGMENT_64s, emit MIRemapSegment[]
+ *   RemapSegments         — mach_vm_remap N segments preserving intra-image offsets
+ *
+ * libobjc map_images discovery (heuristic 4-qword scan of dyld gAPIs)
+ *   StripPACBits          — clear bits 47-63 so range compare works
+ *   ImageTextBounds       — [__TEXT.vmaddr, __TEXT.vmaddr+vmsize) for an image
+ *   FindLibObjCMapImages  — walk libdyld __TPRO_CONST,__dyld_apis to find map_images
+ *
+ * Payload section discovery
+ *   FindPayloadSection    — locate a __TEXT,<name> section's target-space range
+ *
+ * Loader dylib boot
+ *   WriteEmbeddedLoaderToTempPath — write byte array to /private/tmp/*.dylib
+ *   LoadThreadConvert     — dlsym thread_convert_thread_state for arm64e state fixup
+ *
+ * Chained-fixup parser (see Documentations/Design/ChainedFixupsPipeline.md)
+ *   FindChainedFixupsHeaderInSlice — locate LC_DYLD_CHAINED_FIXUPS blob
+ *   FindMachOSliceOffset  — pick the arm64e slice in a thin/fat binary
+ *   ResolveBindImport     — dlsym a bind's target from a fixup chain import
+ *   ParseChainedFixups    — walk every chain, serialise MIRemapFixupEntry[]
+ *
+ * Legacy (kept for reference, replaced by ParseChainedFixups)
+ *   ResideInternalPointers — POC upper-bit heuristic to reslide internal ptrs.
+ *                             The chained-fixup parser subsumes this cleanly;
+ *                             this function is no longer wired into the flow
+ *                             but is preserved for archaeology.
+ *
+ * Error surface
+ *   MakeError             — build NSError under MIMachInjectorRemapErrorDomain
+ *
+ * Entry point
+ *   +[MIMachInjectorRemap injectToPID:payloadPath:entrySymbol:error:]
+ *                         — the 13-step recipe wiring all of the above together
+ *
+ * =============================================================================
+ * ARCHITECTURE GATE
+ * =============================================================================
+ *
+ * The implementation depends on arm64 thread-state types (arm_thread_state64_t,
+ * ARM_THREAD_STATE64) and the arm64-only remap loader dylib, so gate the whole
+ * real implementation on __arm64__ and provide a "arm64-only" stub for the
+ * x86_64 slices SPM otherwise compiles. Same technique MIMachInjectorAsync uses.
+ * =============================================================================
  */
 
 #import "MIMachInjectorRemap.h"
 
-// The SPM target compiles this file for every slice the umbrella target
-// requests (arm64, arm64e, x86_64, ...). The implementation depends on arm64
-// thread-state types (`arm_thread_state64_t`, `ARM_THREAD_STATE64`) and the
-// loader dylib is arm64-only, so gate the whole real implementation on
-// __arm64__ and provide a `@available`-style stub for x86_64 slices — same
-// pattern MIMachInjectorAsync uses.
+// Real implementation is arm64-only (see ARCHITECTURE GATE in top-of-file
+// docblock). x86_64 slice falls through to a stub returning arm64-only error.
 #ifdef __arm64__
 
 #include <dlfcn.h>
@@ -337,12 +403,17 @@ static void FindPayloadSection(const struct mach_header_64 *payloadMachHeader,
 }
 
 // -----------------------------------------------------------------------------
-// Reslide internal payload pointers. Upper-bit heuristic identifies rebase
-// slots pointing back into the payload's own image (in the injector) and
-// rewrites them to the equivalent target address. This is the POC approach —
-// a proper LC_DYLD_CHAINED_FIXUPS parser would be more principled, but the
-// heuristic covers what M3.a needs (SwiftMiniTestClass, RuntimeViewerServer
-// with ~29k reslid pointers observed in practice).
+// LEGACY — no longer wired into the pipeline. Subsumed by ParseChainedFixups +
+// apply_fixups. Kept here for archaeology only; do not call from new code.
+//
+// The upper-bit heuristic below identifies rebase slots whose value falls
+// inside the payload's own image (in the injector) and rewrites them to the
+// equivalent target address. It handles the "internal pointer reslide" case
+// but is blind to signed bind pointers into libswiftCore / libobjc — those
+// are handled correctly only by the LC_DYLD_CHAINED_FIXUPS parser. Reading
+// this function does NOT teach you how the current fixup pipeline works;
+// read ParseChainedFixups + loader_arm64_remap_fixup.c instead.
+// See also: Documentations/Design/ChainedFixupsPipeline.md.
 // -----------------------------------------------------------------------------
 static void ResideInternalPointers(mach_port_t target,
                                    const struct mach_header_64 *payloadMachHeader,
@@ -801,6 +872,53 @@ static int ParseChainedFixups(NSString *payloadPath,
 
 @implementation MIMachInjectorRemap
 
+// -----------------------------------------------------------------------------
+// The 13-step recipe. Cross-reference with the ASCII data flow diagram in
+// Documentations/Design/RemapArchitecture.md — each numbered comment below
+// (`// ----- N. ... -----`) corresponds to one row in that diagram.
+//
+// Preconditions
+//   - Injector holds task_for_pid privilege on `pid` (root, com.apple.system-
+//     task-ports.debug entitlement, developer-mode + SIP off, etc.)
+//   - `payloadPath` names a dylib containing an arm64e slice with the
+//     `entrySymbol` exported as `void *(*)(void *)`.
+//   - Target already has libobjc + libswiftCore loaded (true for basically
+//     every macOS daemon).
+//
+// Postconditions on success
+//   - Loader dylib bytes remapped into target; loader's __DATA holds
+//     patched addresses for target-space pthread_create, payload entry,
+//     config page, fixup worklist, fixup count, payload base.
+//   - Payload dylib segments remapped into target; __DATA_CONST /
+//     __DATA / __AUTH_CONST / __AUTH flipped to R+W+VM_PROT_COPY.
+//   - Fixup worklist mach_vm_write'd into a fresh target-side allocation.
+//   - Payload config page mach_vm_write'd into a fresh target-side
+//     allocation; contains map_images ptr, three swift_register* ptrs,
+//     payload mach-header addr, payload path, three __swift5_* section
+//     ranges.
+//   - Raw mach thread running the loader's stage1 in the target; that
+//     thread apply_fixups the payload, then pthread_create_from_mach_thread
+//     with start_routine = pthread_thunk.
+//   - After ~2 seconds we terminate the raw mach thread — the pthread it
+//     spawned continues running perform_runtime_handoff → payload entry.
+//
+// Postconditions on failure
+//   - `*error` populated with domain MIMachInjectorRemapErrorDomain and a
+//     code from MIMachInjectorRemapErrorCode enum (matches the table in
+//     MIMachInjectorRemap.h).
+//   - Target process may or may not be crashed, depending on which step
+//     failed. Failures after step 7 (payload segments already remapped)
+//     leave stale segments in the target that a subsequent inject won't
+//     see, but they cost target VM until it exits — same as a leaked
+//     mach_vm_allocate.
+//
+// Handle-leak convention (see the @finally block for details):
+//   - The three dlopen handles (loader / payload / libswiftCore) are
+//     intentionally leaked. dlclose would trigger dyld unload paths
+//     that mprotect the pages, and those protection changes propagate
+//     via the shared VM object into the target and crash it with
+//     KERN_PROTECTION_FAILURE next time it touches the shared page.
+// -----------------------------------------------------------------------------
 + (BOOL)injectToPID:(pid_t)pid
         payloadPath:(NSString *)payloadPath
         entrySymbol:(NSString *)entrySymbol

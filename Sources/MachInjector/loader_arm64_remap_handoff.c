@@ -2,6 +2,16 @@
 // loader_arm64_remap_handoff.c — dyld-runtime notifications replayer.
 // -----------------------------------------------------------------------------
 //
+// SEE ALSO (before touching this file)
+//   Documentations/Design/StrictSeatbeltPayloadRuntimeHandoff.md — why
+//     handoff must run in the pthread (not on the raw mach thread) and the
+//     three-phase history of where this code has lived.
+//   Documentations/Design/LoaderDylibInternals.md — how mark block, block
+//     descriptor, and function-pointer signing are laid out.
+//   Documentations/Design/PACHandbookForRemap.md — block invoke schema
+//     (ASIA + addr_diverse + const=0), the double-sign trap around
+//     `(void *)funcName`, function-pointer R-value schema.
+//
 // After stage1's apply_fixups() writes every LC_DYLD_CHAINED_FIXUPS slot in
 // the remapped payload, we still need to teach the target's libobjc and
 // libswiftCore about the new image before the payload starts running its
