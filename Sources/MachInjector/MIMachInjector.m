@@ -16,6 +16,41 @@ extern char *sandbox_extension_issue_file_to_process(const char *extension_class
 // Completion magic number: "DONE" in little-endian (0x444f4e45)
 #define MI_INJECTION_DONE 0x444f4e45
 
+// Report block the shellcode's pthread fills in after calling dlopen, allocated
+// read/write in the target by the injector. Layout must stay in sync with the
+// REPORT_* offsets in loader_arm64.s / loader_x86_64.s.
+//
+// The mach thread's "DONE" register signal only proves pthread_create returned;
+// dlopen runs on the pthread afterwards. Without this block a target that
+// refuses the payload — AMFI library validation on a platform binary, a
+// seatbelt profile denying file-map-executable, a bad path — is
+// indistinguishable from a successful load, and the injector reports success
+// while nothing whatsoever was loaded.
+typedef struct {
+    int32_t resultCode;
+    int32_t reserved;
+    uint64_t handle;
+    char errorMessage[256];
+} MIMachInjectorDlopenReport;
+
+typedef NS_ENUM(int32_t, MIMachInjectorDlopenResultCode) {
+    MIMachInjectorDlopenResultCodePending = 0,
+    MIMachInjectorDlopenResultCodeLoaded = 1,
+    MIMachInjectorDlopenResultCodeFailed = 2,
+};
+
+_Static_assert(offsetof(MIMachInjectorDlopenReport, resultCode) == 0x00, "report layout drifted from the loader shellcode");
+_Static_assert(offsetof(MIMachInjectorDlopenReport, handle) == 0x08, "report layout drifted from the loader shellcode");
+_Static_assert(offsetof(MIMachInjectorDlopenReport, errorMessage) == 0x10, "report layout drifted from the loader shellcode");
+_Static_assert(sizeof(((MIMachInjectorDlopenReport *)0)->errorMessage) == 0x100, "report layout drifted from the loader shellcode");
+
+// How long to wait for the pthread's dlopen to land after the mach thread
+// signalled "DONE". A payload whose constructor is slow can outlast this; a
+// still-pending report is therefore treated as success, exactly as before this
+// block existed. Only an explicit failure code turns into an error.
+#define MI_DLOPEN_REPORT_POLL_ATTEMPTS 100
+#define MI_DLOPEN_REPORT_POLL_INTERVAL_MICROSECONDS 20000
+
 #ifdef __arm64__
 
 #include <ptrauth.h>
@@ -29,8 +64,10 @@ extern char __shellcode_end[];
 extern char __patch_pthread_create[];
 extern char __patch_sandbox_consume[];
 extern char __patch_dlopen[];
+extern char __patch_dlerror[];
 extern char __data_payload_path[];
 extern char __data_sandbox_token[];
+extern char __data_report_address[];
 
 static kern_return_t (*_thread_convert_thread_state)(thread_act_t thread, int direction, thread_state_flavor_t flavor, thread_state_t in_state, mach_msg_type_number_t in_stateCnt, thread_state_t out_state, mach_msg_type_number_t *out_stateCnt);
 
@@ -42,7 +79,9 @@ extern char __x86_shellcode_start[];
 extern char __x86_shellcode_end[];
 extern char __x86_patch_pthread_create[];
 extern char __x86_patch_dlopen[];
+extern char __x86_patch_dlerror[];
 extern char __x86_data_payload_path[];
+extern char __x86_data_report_address[];
 
 // Maximum dylib path length (must match .zero size in loader_x86_64.s)
 #define X86_MAX_PATH_LENGTH 512
@@ -75,8 +114,10 @@ static NSError *MIMachInjectorErrorMake(NSString *description, ...) {
     thread_act_t thread = MACH_PORT_NULL;
     mach_vm_address_t stack = 0;
     mach_vm_address_t code = 0;
+    mach_vm_address_t report = 0;
     vm_size_t stack_size = 16 * 1024;
     vm_size_t code_size = 0;
+    vm_size_t report_size = sizeof(MIMachInjectorDlopenReport);
 
     // Local allocations
     char *sandbox_token = NULL;
@@ -152,12 +193,24 @@ static NSError *MIMachInjectorErrorMake(NSString *description, ...) {
         goto cleanup;
     }
 
+    // Allocate the dlopen report block. Freshly allocated Mach memory is
+    // zero-filled and read/write, which is all the pthread needs — the
+    // shellcode page itself is mapped read+execute and cannot be written to.
+    //
+    // A failure here is not fatal: the shellcode treats a zero report address
+    // as "nowhere to report", so the injection still proceeds, just blind.
+    if (mach_vm_allocate(task, &report, report_size, VM_FLAGS_ANYWHERE) != KERN_SUCCESS) {
+        report = 0;
+    }
+
 #ifdef __x86_64__
     // x86_64: Prepare and inject shellcode from external assembly
     const uintptr_t X86_SHELLCODE_SIZE = __x86_shellcode_end - __x86_shellcode_start;
     const uintptr_t X86_PTHREAD_CREATE_OFFSET = __x86_patch_pthread_create - __x86_shellcode_start;
     const uintptr_t X86_DLOPEN_OFFSET = __x86_patch_dlopen - __x86_shellcode_start;
+    const uintptr_t X86_DLERROR_OFFSET = __x86_patch_dlerror - __x86_shellcode_start;
     const uintptr_t X86_PAYLOAD_PATH_OFFSET = __x86_data_payload_path - __x86_shellcode_start;
+    const uintptr_t X86_REPORT_ADDRESS_OFFSET = __x86_data_report_address - __x86_shellcode_start;
 
     code_size = X86_SHELLCODE_SIZE;
 
@@ -178,9 +231,13 @@ static NSError *MIMachInjectorErrorMake(NSString *description, ...) {
     // The patch locations are .quad data entries that are loaded via RIP-relative addressing
     uint64_t pcfmt_address = (uint64_t)dlsym(RTLD_DEFAULT, "pthread_create_from_mach_thread");
     uint64_t dlopen_address = (uint64_t)dlsym(RTLD_DEFAULT, "dlopen");
+    uint64_t dlerror_address = (uint64_t)dlsym(RTLD_DEFAULT, "dlerror");
+    uint64_t report_address = (uint64_t)report;
 
     memcpy(local_shellcode + X86_PTHREAD_CREATE_OFFSET, &pcfmt_address, sizeof(uint64_t));
     memcpy(local_shellcode + X86_DLOPEN_OFFSET, &dlopen_address, sizeof(uint64_t));
+    memcpy(local_shellcode + X86_DLERROR_OFFSET, &dlerror_address, sizeof(uint64_t));
+    memcpy(local_shellcode + X86_REPORT_ADDRESS_OFFSET, &report_address, sizeof(uint64_t));
 
     // Copy dylib path with bounds check
     size_t pathLen = strlen(dylibPath.UTF8String);
@@ -218,8 +275,10 @@ static NSError *MIMachInjectorErrorMake(NSString *description, ...) {
     const uintptr_t PTHREAD_CREATE_OFFSET = __patch_pthread_create - __shellcode_start;
     const uintptr_t SANDBOX_CONSUME_OFFSET = __patch_sandbox_consume - __shellcode_start;
     const uintptr_t DLOPEN_OFFSET = __patch_dlopen - __shellcode_start;
+    const uintptr_t DLERROR_OFFSET = __patch_dlerror - __shellcode_start;
     const uintptr_t PAYLOAD_PATH_OFFSET = __data_payload_path - __shellcode_start;
     const uintptr_t SANDBOX_TOKEN_OFFSET = __data_sandbox_token - __shellcode_start;
+    const uintptr_t REPORT_ADDRESS_OFFSET = __data_report_address - __shellcode_start;
 
     code_size = SHELLCODE_SIZE;
 
@@ -240,11 +299,15 @@ static NSError *MIMachInjectorErrorMake(NSString *description, ...) {
     uint64_t pcfmt_address = (uint64_t)ptrauth_strip(dlsym(RTLD_DEFAULT, "pthread_create_from_mach_thread"), ptrauth_key_function_pointer);
     uint64_t dlopen_address = (uint64_t)ptrauth_strip(dlsym(RTLD_DEFAULT, "dlopen"), ptrauth_key_function_pointer);
     uint64_t sandbox_consume_address = (uint64_t)ptrauth_strip(dlsym(RTLD_DEFAULT, "sandbox_extension_consume"), ptrauth_key_function_pointer);
+    uint64_t dlerror_address = (uint64_t)ptrauth_strip(dlsym(RTLD_DEFAULT, "dlerror"), ptrauth_key_function_pointer);
+    uint64_t report_address = (uint64_t)report;
 
     // Patch function addresses
     memcpy(local_shellcode + PTHREAD_CREATE_OFFSET, &pcfmt_address, sizeof(uint64_t));
     memcpy(local_shellcode + SANDBOX_CONSUME_OFFSET, &sandbox_consume_address, sizeof(uint64_t));
     memcpy(local_shellcode + DLOPEN_OFFSET, &dlopen_address, sizeof(uint64_t));
+    memcpy(local_shellcode + DLERROR_OFFSET, &dlerror_address, sizeof(uint64_t));
+    memcpy(local_shellcode + REPORT_ADDRESS_OFFSET, &report_address, sizeof(uint64_t));
 
     // Copy dylib path with bounds check
     size_t pathLen = strlen(dylibPath.UTF8String);
@@ -333,8 +396,10 @@ static NSError *MIMachInjectorErrorMake(NSString *description, ...) {
     }
 #endif
 
-    // Wait for injection to complete
+    // Wait for the mach thread to report that it spawned the pthread
     usleep(10000);
+
+    BOOL didCreatePthread = NO;
 
     for (int i = 0; i < 10; ++i) {
         // Reset count before each call (in/out parameter)
@@ -351,15 +416,51 @@ static NSError *MIMachInjectorErrorMake(NSString *description, ...) {
 #elif __arm64__
         if (thread_state.__x[0] == MI_INJECTION_DONE) {
 #endif
-            result = YES;
-            goto cleanup;
+            didCreatePthread = YES;
+            break;
         }
 
         usleep(20000);
     }
 
-    // Timeout
-    error = MIMachInjectorErrorMake(@"injection timed out");
+    if (!didCreatePthread) {
+        // Timeout
+        error = MIMachInjectorErrorMake(@"injection timed out");
+        goto cleanup;
+    }
+
+    // The pthread exists, but the dylib may still have been refused. Poll the
+    // report block for dlopen's verdict; only an explicit failure downgrades
+    // the result, so a payload slower than the poll budget keeps reporting
+    // success the way it always did.
+    result = YES;
+
+    if (report != 0) {
+        for (int i = 0; i < MI_DLOPEN_REPORT_POLL_ATTEMPTS; ++i) {
+            MIMachInjectorDlopenReport dlopenReport = {0};
+            mach_vm_size_t bytesRead = 0;
+            kern_return_t kr = mach_vm_read_overwrite(task, report, sizeof(dlopenReport),
+                                                     (mach_vm_address_t)&dlopenReport, &bytesRead);
+
+            if (kr != KERN_SUCCESS || bytesRead != sizeof(dlopenReport)) {
+                break;
+            }
+
+            if (dlopenReport.resultCode == MIMachInjectorDlopenResultCodeLoaded) {
+                break;
+            }
+
+            if (dlopenReport.resultCode == MIMachInjectorDlopenResultCodeFailed) {
+                dlopenReport.errorMessage[sizeof(dlopenReport.errorMessage) - 1] = '\0';
+                error = MIMachInjectorErrorMake(@"target process refused to load %@: %s", dylibPath,
+                                                dlopenReport.errorMessage[0] ? dlopenReport.errorMessage : "dlopen returned NULL");
+                result = NO;
+                break;
+            }
+
+            usleep(MI_DLOPEN_REPORT_POLL_INTERVAL_MICROSECONDS);
+        }
+    }
 
 cleanup:
     // Terminate remote thread
@@ -367,9 +468,11 @@ cleanup:
         thread_terminate(thread);
     }
 
-    // Note: We intentionally do NOT deallocate stack and code segments
-    // in the target process, as they may still be in use by the injected
-    // thread or the loaded dylib. This is expected behavior for injection.
+    // Note: We intentionally do NOT deallocate the stack, code, or report
+    // segments in the target process, as they may still be in use by the
+    // injected thread or the loaded dylib — the pthread can still be inside
+    // dlopen, and writes its verdict into the report block when it returns.
+    // This is expected behavior for injection.
 
     // Release task port
     if (task != MACH_PORT_NULL) {

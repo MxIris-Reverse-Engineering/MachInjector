@@ -4,12 +4,22 @@
  * =============================================================================
  *
  * The synchronous and asynchronous injectors in this library both rely on the
- * target process being willing to `dlopen(3)` the payload path. That fails
- * for strict seatbelt platform daemons whose sandbox profile denies
- * `file-map-executable` for any path outside a hard-coded system whitelist —
- * sharingd, rapportd, and their kin. No sandbox extension helps: the
- * `APP_SANDBOX_READ` extension only unlocks `file-read*`, not the executable-map
- * predicate that the deny catches.
+ * target process being willing to `dlopen(3)` the payload path. Two unrelated
+ * enforcement layers can refuse that, and neither is fixable from the injector:
+ *
+ *   - **Seatbelt.** Strict seatbelt platform daemons deny
+ *     `file-map-executable` for any path outside a hard-coded system
+ *     whitelist — sharingd, rapportd, and their kin. No sandbox extension
+ *     helps: the `APP_SANDBOX_READ` extension only unlocks `file-read*`, not
+ *     the executable-map predicate that the deny catches.
+ *   - **AMFI library validation.** A process whose code-signing status carries
+ *     `CS_REQUIRE_LV` (`csops(pid, CS_OPS_STATUS, ...)`) only accepts dylibs
+ *     signed by Apple or by its own Team ID. Every Apple application is signed
+ *     this way — Music, Finder, Safari, Mail, Xcode — so a developer-signed
+ *     payload is rejected with "mapping process and mapped file (non-platform)
+ *     have different Team IDs". Note this is orthogonal to the sandbox: those
+ *     apps are otherwise unsandboxed, so a `sandbox_check` probe reports
+ *     everything as allowed.
  *
  * MIMachInjectorRemap avoids `dlopen` in the target entirely. It maps the
  * payload dylib into the injector, then uses `mach_vm_remap` with
@@ -29,6 +39,8 @@
  *
  * Use MIMachInjectorRemap when:
  *   - The target is a strict seatbelt daemon that will refuse dlopen.
+ *   - The target enforces library validation (`CS_REQUIRE_LV`) and the payload
+ *     is not signed by the target's Team ID — i.e. any Apple application.
  *   - You control the payload dylib's entry point (needs an exported symbol,
  *     see below).
  *   - You are running on Apple Silicon (arm64 / arm64e).

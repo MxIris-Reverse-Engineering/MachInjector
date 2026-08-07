@@ -85,9 +85,12 @@
  * 4. When RAX == "DONE", injector knows pthread was created
  * 5. Injector terminates the mach thread
  *
- * This polling approach has limitations:
- * - Cannot know if dlopen() succeeded or failed
- * - Cannot retrieve dlopen() handle
+ * dlopen's own outcome arrives separately: the pthread writes its handle, and
+ * dlerror()'s message on failure, into the report block the injector allocated
+ * in the target (see REPORT BLOCK LAYOUT below), which the injector polls after
+ * seeing "DONE".
+ *
+ * This polling approach still has limitations:
  * - Thread and memory resources are not cleaned up
  *
  * For better resource management, use MIMachInjectorAsync (ARM64 only).
@@ -140,11 +143,7 @@
  * 1. No sandbox extension support
  *    - Cannot inject into sandboxed processes that can't access the dylib
  *
- * 2. No result reporting
- *    - Cannot retrieve dlopen() return value
- *    - Cannot get dlerror() message on failure
- *
- * 3. No resource cleanup
+ * 2. No resource cleanup
  *    - Allocated memory (code, stack) is intentionally leaked
  *    - Mach thread is terminated but not deallocated
  *
@@ -169,7 +168,9 @@
 .global ___x86_shellcode_end
 .global ___x86_patch_pthread_create
 .global ___x86_patch_dlopen
+.global ___x86_patch_dlerror
 .global ___x86_data_payload_path
+.global ___x86_data_report_address
 
 /*
  * Completion magic number: "DONE" in little-endian ASCII
@@ -177,6 +178,24 @@
  * But we store as 0x444F4E45 to match existing code expectations
  */
 .set MI_INJECTION_DONE, 0x444F4E45
+
+/*
+ * -----------------------------------------------------------------------------
+ * REPORT BLOCK LAYOUT
+ * -----------------------------------------------------------------------------
+ * The RAX "DONE" signal only says pthread_create returned — dlopen runs on the
+ * pthread afterwards, so a target that refuses the payload used to look exactly
+ * like a successful load. The pthread records dlopen's outcome in a page the
+ * injector allocated read/write in the target, which the injector then polls.
+ *
+ * The block lives on its own page rather than inside the shellcode blob because
+ * the shellcode is mapped read+execute in the target; the pthread cannot write
+ * to it. Layout matches loader_arm64.s.
+ */
+.set REPORT_RESULT_CODE,        0x00    // int32_t: 0=pending, 1=loaded, 2=dlopen failed
+.set REPORT_HANDLE,             0x08    // uint64_t: dlopen return value
+.set REPORT_ERROR_MESSAGE,      0x10    // char[256]: dlerror() string
+.set REPORT_ERROR_MESSAGE_SIZE, 0x100   // Maximum error message length (256 bytes)
 
 /*
  * =============================================================================
@@ -288,11 +307,22 @@ ___x86_thread_entry:
     /*
      * Stack Frame Setup
      * -----------------
-     * Standard function prologue. The stack should already be 16-byte
-     * aligned when we're called, but we set up a frame anyway.
+     * Standard function prologue. RBX is callee-saved and holds the report
+     * block address across the dlopen / dlerror calls; the extra 8 bytes keep
+     * RSP 16-byte aligned at the call sites.
      */
     pushq   %rbp                        // Save frame pointer
     movq    %rsp, %rbp                  // Set up new frame pointer
+    pushq   %rbx                        // Save callee-saved register
+    subq    $0x8, %rsp                  // Re-align stack to 16 bytes
+
+    /*
+     * Load Report Block Address
+     * -------------------------
+     * Zero when the injector could not allocate one; the load still proceeds,
+     * it just goes unreported.
+     */
+    movq    ___x86_data_report_address(%rip), %rbx
 
     /*
      * Prepare dlopen Arguments
@@ -314,26 +344,59 @@ ___x86_thread_entry:
     callq   *%rax                       // Call dlopen(path, RTLD_LAZY)
 
     /*
-     * dlopen returns:
-     *   Non-NULL handle on success
-     *   NULL on failure (call dlerror() for details)
-     *
-     * We don't check the result because:
-     * 1. We have no way to communicate it back to the injector
-     * 2. The synchronous API doesn't support result reporting
-     *
-     * For result reporting, use MIMachInjectorAsync (ARM64 only).
+     * Record the Outcome
+     * ------------------
+     * dlopen returns a non-NULL handle on success, NULL on failure (with the
+     * reason available from dlerror()).
      */
+    testq   %rbx, %rbx
+    je      ___x86_thread_entry_return
+    movq    %rax, REPORT_HANDLE(%rbx)
+    testq   %rax, %rax
+    jne     ___x86_dlopen_succeeded
 
+    movq    ___x86_patch_dlerror(%rip), %rax  // Load dlerror address
+    callq   *%rax                       // Call dlerror()
+    testq   %rax, %rax
+    je      ___x86_dlopen_failed
+
+    movq    %rax, %rsi                          // RSI = source cursor
+    leaq    REPORT_ERROR_MESSAGE(%rbx), %rdi    // RDI = destination cursor
+    movl    $(REPORT_ERROR_MESSAGE_SIZE - 1), %ecx
+
+___x86_copy_error_message:
+    testl   %ecx, %ecx
+    je      ___x86_copy_error_message_done
+    movb    (%rsi), %al
+    movb    %al, (%rdi)
+    incq    %rsi
+    incq    %rdi
+    testb   %al, %al
+    je      ___x86_copy_error_message_done
+    decl    %ecx
+    jmp     ___x86_copy_error_message
+
+___x86_copy_error_message_done:
+    movb    $0x0, (%rdi)
+
+___x86_dlopen_failed:
+    mfence                              // Publish handle and message first
+    movl    $0x2, REPORT_RESULT_CODE(%rbx)
+    jmp     ___x86_thread_entry_return
+
+___x86_dlopen_succeeded:
+    mfence
+    movl    $0x1, REPORT_RESULT_CODE(%rbx)
+
+___x86_thread_entry_return:
     /*
      * Return from Thread
      * ------------------
-     * Set up a clean return value and exit.
      * The return value doesn't matter - the injector doesn't check it.
      */
-    xorl    %esi, %esi                  // ESI = 0
-    movl    %esi, %edi                  // EDI = 0
-    movq    %rdi, %rax                  // RAX = 0 (return value)
+    xorl    %eax, %eax                  // RAX = 0 (return value)
+    addq    $0x8, %rsp                  // Undo the alignment padding
+    popq    %rbx                        // Restore callee-saved register
     popq    %rbp                        // Restore frame pointer
     retq                                // Return from thread
 
@@ -360,6 +423,10 @@ ___x86_patch_pthread_create:
 ___x86_patch_dlopen:
     .quad 0x0                           // Address of dlopen
 
+    .align 3
+___x86_patch_dlerror:
+    .quad 0x0                           // Address of dlerror
+
 /*
  * =============================================================================
  * DATA SECTION
@@ -372,6 +439,10 @@ ___x86_patch_dlopen:
     .align 3  // Align to 8-byte boundary
 ___x86_data_payload_path:
     .zero 0x200                         // 512 bytes for dylib path
+
+    .align 3
+___x86_data_report_address:
+    .quad 0x0                           // Report block address in the target process
 
 /*
  * End marker - used to calculate shellcode size: end - start
