@@ -36,6 +36,36 @@ clang -dynamiclib -arch arm64 -arch arm64e \
     loader_arm64_remap_fixup.c \
     loader_arm64_remap_handoff.c
 
+# Guard against silently shipping a stage-1 shim that hands libpthread a raw
+# function pointer.
+#
+# pthread_create_from_mach_thread takes a `void *(*)(void *)`, which on arm64e
+# is an IA/0-signed function pointer. libpthread re-signs it into its own struct
+# and _pthread_start authenticates it before branching, so passing the raw
+# adrp/add result poisons the pointer and the spawned thread dies with a
+# PAC_EXCEPTION before a single instruction of _pthread_thunk runs — the target
+# process is killed and nothing indicates why. It regressed exactly once, when
+# the start routine moved from an injector-filled config slot to the
+# loader-internal _pthread_thunk symbol and the signing did not come along.
+#
+# The check is here rather than in a unit test because the loader is a
+# generated artifact: this script is the only place it is produced, and the
+# bytes it emits are what every injection actually executes.
+echo "==> verifying stage-1 signs the pthread start routine"
+for SLICE_ARCHITECTURE in arm64 arm64e; do
+    SLICE="$(mktemp -t loader_slice_${SLICE_ARCHITECTURE})"
+    lipo -thin "$SLICE_ARCHITECTURE" "$DYLIB" -output "$SLICE"
+    STAGE1_DISASSEMBLY="$(objdump --disassemble-symbols=_remap_stage1_entry "$SLICE")"
+    rm -f "$SLICE"
+    if ! grep -q "paciza" <<< "$STAGE1_DISASSEMBLY"; then
+        echo "error: _remap_stage1_entry ($SLICE_ARCHITECTURE) never signs the pthread start" >&2
+        echo "       routine. pthread_create_from_mach_thread needs an IA/0-signed" >&2
+        echo "       function pointer; a raw one kills the target with a PAC_EXCEPTION." >&2
+        echo "       Restore the 'paciza x2' in loader_arm64_remap.s." >&2
+        exit 1
+    fi
+done
+
 echo "==> ad-hoc signing (recipients ad-hoc verify byte-for-byte)"
 codesign -f -s - "$DYLIB"
 

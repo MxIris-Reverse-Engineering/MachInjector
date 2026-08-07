@@ -152,8 +152,24 @@ markBlock.invoke = __builtin_ptrauth_sign_unauthenticated(
 | Target `perform_runtime_handoff` step 1 | 签 map_images 函数指针用于调用 | IA + 0（R-value schema） | 同上 |
 | Target `perform_runtime_handoff` step 1 | 签 markBlock.invoke（block invoke schema） | IA + addr_diverse=1 + const=0 | `sign_unauthenticated(strip(&func), IA, blend(&invoke, 0))` |
 | Target `MIRemapCallSwiftRegister` | 签 swift_register* 函数指针用于调用 | IA + 0（R-value schema） | 同上 R-value schema |
+| Target `_remap_stage1_entry` Phase 2 | 签 `_pthread_thunk`，作 `pthread_create_from_mach_thread` 的 start routine | IA + 0（R-value schema） | `paciza x2`（`loader_arm64_remap.s`） |
 
 **注意**：从来没有一次 sign 用 `ptrauth_key_asib` / `ptrauth_key_asda` / `ptrauth_key_asdb` 之外的组合——除了 `apply_fixups` 里 fixup entry 自己带来的 key 位（0-3 都可能）。
+
+### 唯一一次踩过的坑：交给 libpthread 的 start routine
+
+`pthread_create_from_mach_thread` 的第三个参数类型是 `void *(*)(void *)`，在 arm64e 上就是 **Schema A 的 IA+0 函数指针**，跟其它任何函数指针参数没有区别。汇编里用 `adrp` + `add` 算出来的是 **raw address**，必须补一条 `paciza` 才符合 ABI。
+
+漏签的后果不是"调用失败"而是**目标进程被杀**，且现场极具误导性：`pthread_create_from_mach_thread` 本身返回 0（成功），libpthread 把这个指针重签进自己的 `pthread_s.fun` 字段，直到 `_pthread_start` 认证并 branch 时才炸。崩溃报告里看到的是：
+
+- `termination.namespace = PAC_EXCEPTION`
+- `EXC_BAD_ACCESS`，`subtype` 形如 `KERN_INVALID_ADDRESS at 0xd54e80010c4d84cc -> 0x000000010c4d84cc (possible pointer authentication failure)`
+- 栈只有三帧：`<未知> / _pthread_start / thread_start`
+- 剥掉 PAC 位后的地址正好落在 remap 进去的 loader `__TEXT` 区间内，偏移等于 `_pthread_thunk` 的符号偏移
+
+也就是说 **thunk 一条指令都没执行**，很容易误判成"handoff 挂了"而去查 map_images / swift_register。判断方法：把 `far` 的低位地址拿去和 `nm -arch arm64e -n` 出来的 loader 符号偏移比对。
+
+这条在 2026-08-06 回归过一次：start routine 从 injector 填的 config 槽位（`_cfg_pthread_start_addr`）改成 loader 内部符号 `_pthread_thunk` 时，签名没跟着搬过来。`build_loader.sh` 现在会在汇编后反汇编 `_remap_stage1_entry` 并检查 `paciza` 是否存在，缺了就直接让生成失败。
 
 ## 项目里所有 strip 位置汇总
 
@@ -236,6 +252,9 @@ mapImages(1, &mappedInfo, &markBlock);
 
 **`EXC_BAD_ACCESS` at `braaz` / `blraa` in target**  
 → 签名不匹配。检查 schema：签的 schema 是不是跟调用点的 schema 一致（key、addr_diverse、discriminator 都要吻合）。
+
+**目标进程被杀，`termination.namespace = PAC_EXCEPTION`，栈只有 `_pthread_start` / `thread_start` 两帧**  
+→ 交给 `pthread_create_from_mach_thread` 的 start routine 没签成 IA+0。注意 `pthread_create_from_mach_thread` 会返回 0，看起来一切正常；thunk 一条指令都没跑。把 `far` 剥掉 PAC 位得到的地址，和 `nm -arch arm64e -n <loader>` 的符号偏移比对即可确认落点是 `_pthread_thunk`。详见上面「唯一一次踩过的坑」。
 
 **`EXC_BAD_ACCESS` at `autia` / `autib` / `autda` / `autdb` in target**  
 → 签名验证失败。对 fixup entry：检查 `apply_fixups` 里 key/modifier 计算是不是对；对 markBlock.invoke：检查 sign 是不是 double 了；对 config 里传下来的函数指针：检查 injector 侧是不是漏 strip。

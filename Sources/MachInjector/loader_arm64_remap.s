@@ -101,8 +101,23 @@ _remap_stage1_entry:
     // x2 = _pthread_thunk (loader-internal wrapper — replays dyld runtime
     // notifications on the pthread, then tail-calls the real payload entry
     // stored in _cfg_pthread_start_addr).
+    //
+    // adrp/add yields the RAW address, but pthread_create_from_mach_thread
+    // takes a `void *(*)(void *)`, which on arm64e is an IA/0-signed function
+    // pointer. libpthread re-signs it into its own struct field, and
+    // _pthread_start authenticates it again before branching — so handing over
+    // a raw address poisons the pointer and the new thread dies with a
+    // PAC_EXCEPTION the moment libpthread branches to it, before a single
+    // instruction of the thunk runs. `paciza` produces exactly the IA/0
+    // representation the ABI expects, and signs with the TARGET's keys because
+    // this shim executes inside the target.
+    //
+    // Same rule the C side already follows for the payload entry and for
+    // map_images (loader_arm64_remap_handoff.c) — see
+    // Documentations/Design/PACHandbookForRemap.md.
     adrp    x2, _pthread_thunk@PAGE
     add     x2, x2, _pthread_thunk@PAGEOFF
+    paciza  x2
 
     // x3 = *(_cfg_pthread_arg)         (patched: pointer to config page in target)
     adrp    x3, _cfg_pthread_arg@PAGE
