@@ -14,9 +14,9 @@ Distilled from [yabai](https://github.com/koekeishiya/yabai)'s injection code an
   - **Asynchronous V2** (`MachInjectorAsync`) — ARM64 only; event-driven completion via `dispatch_source` on `MACH_SEND_DEAD`
   - **mach\_vm\_remap** (`MachInjectorRemap`) — arm64 / arm64e only; bypasses `dlopen` inside the target by mapping the payload's segments straight into the target's VM space. Necessary for strict seatbelt daemons (sharingd, rapportd, and similar) that deny `file-map-executable` for any path outside a hard-coded system whitelist.
 - Rosetta 2 / translated x86_64 targets supported by the ARM64 shellcode (via `liboah.dylib` probing)
-- Detailed `NSError` reporting, including the remote `dlerror()` string when `dlopen()` fails in the target process
+- Detailed `NSError` reporting, including the remote `dlerror()` string when `dlopen()` fails in the target process, and detection of a target that was killed mid-load rather than reporting a false success
 - Swift `async/await` import for the asynchronous API
-- Optional sandbox-extension support on the synchronous ARM64 path (see [`feature/sandbox_support`](../../tree/feature/sandbox_support))
+- Sandbox-extension support on the ARM64 dlopen paths — the injector issues a read token for the payload path (the async path binds it to the target's audit token) so a sandboxed target can reach a dylib outside its container. Note this grants *read* access only: it cannot defeat a `(deny file-map-executable)` rule, which is what `MachInjectorRemap` is for.
 
 ## Requirements
 
@@ -175,7 +175,28 @@ if (!ok) NSLog(@"Failed: %@", error);
 
 The path ships a small ad-hoc-signed loader dylib as embedded bytes and dumps it to `/private/tmp/MIMachInjectorRemap_loader_XXXXXX.dylib` at injection time; the file is unlinked before the API returns.
 
-**For contributors and maintainers**: the remap path is intricate — cross-process PAC signing, chained-fixup replay, libobjc / libswiftCore runtime notifications, and a 13-step VM-plumbing recipe. Before changing any of `Sources/MachInjector/MIMachInjectorRemap.m`, `Sources/MachInjector/loader_arm64_remap.s`, `Sources/MachInjector/loader_arm64_remap_fixup.c`, or `Sources/MachInjector/loader_arm64_remap_handoff.c`, read [`Documentations/Design/RemapArchitecture.md`](Documentations/Design/RemapArchitecture.md) — it is the entry-point document that then branches into four topical deep-dives (chained fixups, loader dylib internals, arm64e PAC, payload runtime handoff). Every source file's top-of-file docblock links back to the relevant document.
+**For contributors and maintainers**: start from
+[`Documentations/README.md`](Documentations/README.md), whose entry point is
+[Three injection paths — overview and how to choose](Documentations/Design/InjectionStrategies.md).
+It explains how each of the three paths is implemented, the four problems every path has to solve
+(task port, execution context, arm64e pointer signing, sandbox), the failure modes of each, and the
+platform support matrix. The dlopen paths are then covered in
+[dlopen injection internals](Documentations/Design/DlopenInjectionInternals.md).
+
+The remap path is intricate — cross-process PAC signing, chained-fixup replay, libobjc / libswiftCore runtime notifications, and a 13-step VM-plumbing recipe. Before changing any of `Sources/MachInjector/MIMachInjectorRemap.m`, `Sources/MachInjector/loader_arm64_remap.s`, `Sources/MachInjector/loader_arm64_remap_fixup.c`, or `Sources/MachInjector/loader_arm64_remap_handoff.c`, read [`Documentations/Design/RemapArchitecture.md`](Documentations/Design/RemapArchitecture.md) — it is the entry-point document that then branches into four topical deep-dives (chained fixups, loader dylib internals, arm64e PAC, payload runtime handoff). Every source file's top-of-file docblock links back to the relevant document.
+
+## Testing
+
+```bash
+swift test
+```
+
+Tests are XCTest (the package targets Swift tools 5.9, where `swift-testing` is unavailable). They
+build a small dylib fixture with `clang` at run time and use it to reproduce, in-process and without
+root, the state that `mach_vm_remap` would otherwise carry from the injector into the target. The
+cross-process steps themselves need `task_for_pid` and are therefore not covered by unit tests —
+see `Documentations/Evolutions/0001-restore-payload-writable-segments-before-fixups.md` for how the
+byte-level decisions are separated from the VM writes so that the former stay testable.
 
 ## Architecture
 
@@ -183,11 +204,17 @@ The path ships a small ad-hoc-signed loader dylib as embedded bytes and dumps it
 |---|---|---|
 | Architectures | ARM64, x86_64 | ARM64 only (Rosetta 2 targets supported) |
 | Loader | `loader_arm64.s`, `loader_x86_64.s` | `loader_arm64_async.s` |
-| Completion | Polls a `0x444f4e45` (`"DONE"`) marker in the notepad | Event-driven via `dispatch_source` on `MACH_SEND_DEAD` of the remote mach thread |
-| Cleanup | Notepad freed; stack and code intentionally leaked | Notepad freed; stack and code intentionally leaked |
-| Error reporting | `NSError` with domain `MIMachInjectorErrorDomain` | `NSError` with domain `MIMachInjectorAsyncErrorDomain`, plus remote `dlerror()` string |
+| Completion | Polls the remote thread's register (`x0` / `rax`) for a `0x444f4e45` (`"DONE"`) marker, then polls a separate report page for `dlopen`'s verdict | Event-driven via `dispatch_source` on `MACH_SEND_DEAD` of the remote mach thread |
+| Result channel | Report page, allocated read/write by the injector (the shellcode's own page is read+execute, so the pthread cannot write to it) | Notepad, which additionally carries the mach thread's own port so the pthread can terminate it |
+| Cleanup | Stack, code, and report page all intentionally leaked | Stack and notepad freed; code intentionally leaked |
+| Error reporting | `NSError` with domain `MIMachInjectorErrorDomain`, plus the remote `dlerror()` string when the target refuses the dylib | `NSError` with domain `MIMachInjectorAsyncErrorDomain`, plus remote `dlerror()` string |
 
-Both paths follow the same high-level recipe:
+`MachInjectorRemap` is deliberately absent from that table: it shares none of those mechanics.
+It never calls `dlopen` in the target, so it has no loader shellcode of this shape and no
+completion marker — it maps the payload's segments directly and replays dyld's work by hand.
+See [InjectionStrategies.md](Documentations/Design/InjectionStrategies.md) for the comparison.
+
+Both dlopen paths follow the same high-level recipe:
 
 1. `task_for_pid()` to get the target's task port.
 2. Allocate a notepad, stack, and code region in the target via `mach_vm_allocate`.
@@ -204,16 +231,22 @@ Threads created by `thread_create_running` have no thread-local storage (`TPIDRR
 
 The V2 loader works around this by having the mach thread spawn a pthread (which *does* have TLS) via `pthread_create_from_mach_thread()`. The pthread performs the `dlopen()`, writes the result to the notepad, and then calls `thread_terminate()` on the mach thread. The dying mach port raises `MACH_SEND_DEAD` in the injector, which is what `dispatch_source` is monitoring.
 
-See the design notes at the top of [`MIMachInjectorAsync.h`](Sources/MachInjector/include/MIMachInjectorAsync.h) for the full rationale.
+See the design notes at the top of [`MIMachInjectorAsync.h`](Sources/MachInjector/include/MIMachInjectorAsync.h) for the full rationale, and
+[dlopen injection internals](Documentations/Design/DlopenInjectionInternals.md) for the three
+prohibitions in detail — including the non-obvious one, that a raw mach thread cannot even call
+`thread_terminate()` on itself.
 
 ### Intentional per-injection leak
 
 Both paths leak a small amount of memory in the target process per injection:
 
-- **Stack:** ~16 KB
-- **Code segment:** ~2.6 KB
+| | `MachInjector` (sync) | `MachInjectorAsync` (V2) |
+|---|---|---|
+| Stack (~16 KB) | leaked | reclaimed |
+| Code segment (~2.6 KB) | leaked | leaked |
+| Report page / notepad | leaked | reclaimed |
 
-The pthread spawned by the loader may still be executing its return sequence (`ldp`, `add sp`, `retab`) at the moment the mach thread dies, so we cannot safely free the regions that back its execution. Only the notepad is reclaimed. Do not "fix" this without rethinking the loader's return sequence.
+The pthread spawned by the loader may still be executing its return sequence (`ldp`, `add sp`, `retab`) at the moment the mach thread dies, so the regions backing its execution cannot be freed safely. The async path can reclaim the stack and notepad because the pthread has demonstrably finished writing to them by the time `MACH_SEND_DEAD` fires — it is the pthread that terminates the mach thread. The sync path has no such ordering guarantee: it returns while the pthread may still be inside `dlopen`, which is also why its report page has to outlive the call. Do not "fix" this without rethinking the loader's return sequence.
 
 ## Example app
 
