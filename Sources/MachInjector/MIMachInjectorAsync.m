@@ -265,10 +265,31 @@ static kern_return_t (*_thread_convert_thread_state)(
  * | Total  | 280  |                  |                                        |
  * +--------+------+------------------+----------------------------------------+
  */
+// WARNING — `result_code` here and MIMachInjectorDlopenResultCode in
+// MIMachInjector.m are DIFFERENT ENCODINGS OF THE SAME IDEA, and `1` means the
+// opposite thing in each:
+//
+//              value 0            value 1              value 2
+//   this file  success            dlopen failed        pthread_create failed
+//   sync path  not reported yet   dlopen succeeded     dlopen failed
+//
+// Reading one while thinking of the other inverts success and failure. They are
+// not unified because the values are produced by hand-written shellcode
+// (loader_arm64_async.s / loader_x86_64.s here, loader_arm64.s there);
+// renumbering means editing assembly on both paths to remove a hazard that
+// reaches no caller — both encodings are internal, and callers see only a BOOL
+// plus an NSError. The cost lands on whoever edits these files, so the warning
+// lives where they will be looking.
+typedef enum : int32_t {
+    MINotepadResultCodeSuccess = 0,
+    MINotepadResultCodeDlopenFailed = 1,
+    MINotepadResultCodePthreadCreateFailed = 2,
+} MINotepadResultCode;
+
 typedef struct {
     uint32_t pthread_port;         // +0x00: pthread's mach port (for phase 2)
     uint32_t mach_thread_port;     // +0x04: mach thread's port (pthread terminates it)
-    int32_t result_code;           // +0x08: Result code
+    int32_t result_code;           // +0x08: MINotepadResultCode — see warning above
     int32_t reserved;              // +0x0C: Reserved/padding
     uint64_t handle;               // +0x10: dlopen() return value
     char error_message[256];       // +0x18: Error message from dlerror()

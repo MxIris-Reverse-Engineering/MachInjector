@@ -3,6 +3,8 @@
 #include <mach/mach.h>
 #include <mach/mach_vm.h>
 #include <dlfcn.h>
+#include <errno.h>
+#include <signal.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <bsm/libbsm.h>
@@ -33,6 +35,14 @@ typedef struct {
     char errorMessage[256];
 } MIMachInjectorDlopenReport;
 
+// WARNING — this and MINotepadResultCode in MIMachInjectorAsync.m are DIFFERENT
+// ENCODINGS OF THE SAME IDEA, and `1` means the opposite thing in each:
+//
+//              value 0            value 1              value 2
+//   this file  not reported yet   dlopen succeeded     dlopen failed
+//   async path success            dlopen failed        pthread_create failed
+//
+// See the matching note in MIMachInjectorAsync.m for why they are not unified.
 typedef NS_ENUM(int32_t, MIMachInjectorDlopenResultCode) {
     MIMachInjectorDlopenResultCodePending = 0,
     MIMachInjectorDlopenResultCodeLoaded = 1,
@@ -48,8 +58,33 @@ _Static_assert(sizeof(((MIMachInjectorDlopenReport *)0)->errorMessage) == 0x100,
 // signalled "DONE". A payload whose constructor is slow can outlast this; a
 // still-pending report is therefore treated as success, exactly as before this
 // block existed. Only an explicit failure code turns into an error.
+//
+// The budget is generous by two orders of magnitude: measured on macOS 26.5,
+// every refusal that returns to dlopen does so well inside 20 ms — a missing
+// path in 0.3 ms, a seatbelt `deny file-map-executable` in 0.7 ms, and an
+// invalid code signature on a 10 MB dylib (cold vnode, amfid consulted) in
+// 15-19 ms.
 #define MI_DLOPEN_REPORT_POLL_ATTEMPTS 100
 #define MI_DLOPEN_REPORT_POLL_INTERVAL_MICROSECONDS 20000
+
+// Whether the target still exists.
+//
+// Checked when the report block cannot be read, to tell "the payload has not
+// answered yet" apart from "there is nobody left to answer". Consults the task
+// port first: the kernel turns our send right into a dead name the moment the
+// task dies, which is both immediate and immune to the PID being recycled onto
+// some unrelated process. kill(pid, 0) is the fallback — EPERM means the
+// process is alive but not ours to signal, so only ESRCH proves absence.
+static BOOL MIMachInjectorTargetIsAlive(mach_port_t task, pid_t pid) {
+    if (task != MACH_PORT_NULL) {
+        mach_port_type_t portType = 0;
+        if (mach_port_type(mach_task_self(), task, &portType) == KERN_SUCCESS &&
+            (portType & MACH_PORT_TYPE_DEAD_NAME) != 0) {
+            return NO;
+        }
+    }
+    return !(kill(pid, 0) != 0 && errno == ESRCH);
+}
 
 #ifdef __arm64__
 
@@ -443,6 +478,29 @@ static NSError *MIMachInjectorErrorMake(NSString *description, ...) {
                                                      (mach_vm_address_t)&dlopenReport, &bytesRead);
 
             if (kr != KERN_SUCCESS || bytesRead != sizeof(dlopenReport)) {
+                // The report is unreadable. Distinguish the two reasons, because
+                // one of them is a failed injection wearing a success's clothes.
+                //
+                // If the target is gone, it did not merely fail to report — it
+                // was killed while loading the dylib. That is what happens when
+                // the code-signing monitor finds a page whose hash does not
+                // match: the process dies as the page is faulted in, so dlopen
+                // never returns, nothing is ever written here, and the poll
+                // would otherwise run out and leave `result` at YES. Reporting
+                // success for a process that no longer exists is the worst
+                // outcome available — callers use this verdict to decide
+                // whether to fall back to another injection strategy.
+                //
+                // Any other read failure keeps the previous behaviour (treat a
+                // missing report as success), so an unmapped page or a slow
+                // constructor cannot regress into a spurious error.
+                if (!MIMachInjectorTargetIsAlive(task, pid)) {
+                    error = MIMachInjectorErrorMake(
+                        @"target process %d terminated while loading %@ "
+                        @"(it was killed before dlopen could report; a code signature "
+                        @"whose page hashes do not match does this)", pid, dylibPath);
+                    result = NO;
+                }
                 break;
             }
 
