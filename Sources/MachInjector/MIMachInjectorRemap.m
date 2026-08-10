@@ -102,6 +102,7 @@
 #include <unistd.h>
 
 #include "loader_arm64_remap_dylib.h"
+#include "MIMachInjectorRemapInternal.h"
 
 // -----------------------------------------------------------------------------
 // Chained-fixup work list handed to loader_arm64_remap_fixup.c's apply_fixups().
@@ -178,15 +179,10 @@ static NSError *MakeError(MIMachInjectorRemapErrorCode code, NSString *format, .
 // -----------------------------------------------------------------------------
 // Local Mach-O segment enumeration. Skips __LINKEDIT and __PAGEZERO so the
 // caller only ever sees segments they need to remap.
+//
+// MIRemapSegment itself lives in MIMachInjectorRemapInternal.h so the test
+// target can build the same descriptors this file does.
 // -----------------------------------------------------------------------------
-typedef struct {
-    char name[16];
-    uint64_t localStart;
-    uint64_t vmaddr;
-    uint64_t vmsize;
-    vm_prot_t initprot;
-} MIRemapSegment;
-
 static int EnumerateSegments(const struct mach_header_64 *machHeader,
                              MIRemapSegment *segments, int maxSegments,
                              uint64_t *outMinVmaddr, uint64_t *outMaxVmend) {
@@ -208,6 +204,13 @@ static int EnumerateSegments(const struct mach_header_64 *machHeader,
                 segments[count].vmsize = segmentCommand->vmsize;
                 segments[count].initprot = segmentCommand->initprot;
                 segments[count].localStart = (uint64_t)machHeader + segmentCommand->vmaddr;
+                // Recorded so the writable-segment restore can find each
+                // segment's pristine bytes in the payload file. Deliberately
+                // fileoff/filesize and not vmaddr/vmsize: the two coincide for
+                // the fixup-bearing segments of a typical dylib but diverge once
+                // an earlier segment carries a zerofill tail.
+                segments[count].fileOffsetInSlice = segmentCommand->fileoff;
+                segments[count].fileBackedSize = segmentCommand->filesize;
                 if (segmentCommand->vmaddr < minVmaddr) minVmaddr = segmentCommand->vmaddr;
                 uint64_t end = segmentCommand->vmaddr + segmentCommand->vmsize;
                 if (end > maxVmend) maxVmend = end;
@@ -551,10 +554,18 @@ FindChainedFixupsHeaderInSlice(const uint8_t *sliceBase, size_t *outSize) {
     }
     if (!chainedFixupsCmd) return NULL;
 
-    // `dataoff` is a file offset — same as a slice-relative offset for a
-    // Mach-O whose LC_SEGMENT_64.fileoff / vmaddr are identity (typical for
-    // dylibs). Since we're indexing directly into the file mmap, dataoff is
-    // exactly the byte offset from sliceBase.
+    // `dataoff` is a file offset and `sliceBase` indexes the file mmap, so this
+    // is exact — no assumption about the payload's layout is involved.
+    //
+    // Do not "fix" this by relating dataoff to vmaddr: an earlier version of
+    // this comment claimed the two coincide "for a Mach-O whose fileoff /
+    // vmaddr are identity (typical for dylibs)", which is both unnecessary and
+    // false. A payload whose __DATA carries a zerofill tail already has
+    // __LINKEDIT at vmaddr != fileoff — and LC_DYLD_CHAINED_FIXUPS lives in
+    // __LINKEDIT. The code was right; the stated premise was not.
+    //
+    // The place where a VM-versus-file offset really is assumed is
+    // ParseChainedFixups' use of segment_offset — see the note there.
     if (outSize) *outSize = chainedFixupsCmd->datasize;
     return (const struct dyld_chained_fixups_header *)(sliceBase + chainedFixupsCmd->dataoff);
 }
@@ -681,30 +692,41 @@ static uint64_t ResolveBindImport(const struct dyld_chained_fixups_header *fixup
 // to a chain walker. Returns 0 on success, filling `*outEntries` (heap-allocated
 // via malloc, caller frees) and `*outCount`. On failure returns -1 and writes
 // an English snippet to `outErrorMessage`.
-static int ParseChainedFixups(NSString *payloadPath,
-                              cpu_type_t payloadCPUType,
-                              cpu_subtype_t payloadCPUSubtype,
-                              uint64_t payloadRemoteBase,
-                              MIRemapFixupEntry **outEntries,
-                              uint32_t *outCount,
-                              NSString **outErrorMessage) {
-    *outEntries = NULL;
-    *outCount = 0;
+// A read-only mapping of the payload FILE, positioned at the slice matching the
+// target's architecture.
+//
+// Shared by the two steps that both need the payload's on-disk bytes — the
+// chained-fixup parse and the writable-segment restore. They used to be able to
+// map it independently, but mapping twice means parsing the fat header twice,
+// and two copies of "which slice did we pick" is one copy too many: if they ever
+// disagreed, the restore would write one slice's bytes over another slice's
+// layout, silently.
+typedef struct {
+    void *fileMap;             // mmap base; munmap with fileSize
+    size_t fileSize;
+    const uint8_t *sliceBase;  // fileMap + slice offset
+    size_t sliceAvailable;     // bytes readable from sliceBase
+} MIRemapPayloadFileMapping;
 
-    // Open + mmap the payload file so we see raw chain data, not dyld's
-    // post-fixup memory image.
+static BOOL OpenPayloadFileMapping(NSString *payloadPath,
+                                   cpu_type_t payloadCPUType,
+                                   cpu_subtype_t payloadCPUSubtype,
+                                   MIRemapPayloadFileMapping *outMapping,
+                                   NSString **outErrorMessage) {
+    memset(outMapping, 0, sizeof *outMapping);
+
     int fd = open([payloadPath UTF8String], O_RDONLY);
     if (fd < 0) {
         if (outErrorMessage) *outErrorMessage =
             [NSString stringWithFormat:@"open payload: %s", strerror(errno)];
-        return -1;
+        return NO;
     }
     struct stat statBuf;
     if (fstat(fd, &statBuf) < 0) {
         if (outErrorMessage) *outErrorMessage =
             [NSString stringWithFormat:@"fstat payload: %s", strerror(errno)];
         close(fd);
-        return -1;
+        return NO;
     }
     size_t fileSize = (size_t)statBuf.st_size;
     void *fileMap = mmap(NULL, fileSize, PROT_READ, MAP_PRIVATE, fd, 0);
@@ -712,26 +734,138 @@ static int ParseChainedFixups(NSString *payloadPath,
     if (fileMap == MAP_FAILED) {
         if (outErrorMessage) *outErrorMessage =
             [NSString stringWithFormat:@"mmap payload: %s", strerror(errno)];
-        return -1;
+        return NO;
     }
-    const uint8_t *fileBytes = (const uint8_t *)fileMap;
 
-    // Locate the arm64e (or requested) slice inside the file.
+    const uint8_t *fileBytes = (const uint8_t *)fileMap;
     int64_t sliceOffset = FindMachOSliceOffset(fileBytes, fileSize,
                                                payloadCPUType, payloadCPUSubtype);
     if (sliceOffset < 0) {
         munmap(fileMap, fileSize);
         if (outErrorMessage) *outErrorMessage =
             @"payload file has no matching slice for target cputype/cpusubtype";
-        return -1;
+        return NO;
     }
-    const uint8_t *sliceBase = fileBytes + sliceOffset;
+
+    outMapping->fileMap = fileMap;
+    outMapping->fileSize = fileSize;
+    outMapping->sliceBase = fileBytes + sliceOffset;
+    outMapping->sliceAvailable = fileSize - (size_t)sliceOffset;
+    return YES;
+}
+
+static void ClosePayloadFileMapping(MIRemapPayloadFileMapping *mapping) {
+    if (mapping->fileMap) {
+        munmap(mapping->fileMap, mapping->fileSize);
+        mapping->fileMap = NULL;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Step 7c — overwrite the target's copy of the payload's writable segments with
+// the payload file's bytes, and zero each segment's zerofill tail.
+//
+// See Documentations/Evolutions/0001-restore-payload-writable-segments-before-fixups.md.
+// In short: RemapSegments hands the target the injector's *running* image, whose
+// __DATA holds process-private state written by dyld and by the Swift and
+// Objective-C runtimes during our dlopen. No chained fixup covers that state, so
+// apply_fixups() cannot correct it. Restoring the file's bytes puts the target's
+// copy back to what a freshly mapped, never-executed image looks like;
+// apply_fixups() then rewrites every fixup slot on top.
+//
+// Must run after the mach_vm_protect in step 7b (the segments arrive read-only,
+// and VM_PROT_COPY splits them into target-private copies so these writes do not
+// propagate back into the injector's own __DATA_CONST).
+static kern_return_t RestoreWritableSegmentsInTarget(mach_port_t target,
+                                                     const MIRemapPayloadFileMapping *mapping,
+                                                     const MIRemapSegment *segments,
+                                                     int segmentCount,
+                                                     uint64_t minVmaddr,
+                                                     mach_vm_address_t remoteBase,
+                                                     NSString **outErrorMessage) {
+    // One shared page of zeroes, written in chunks, rather than a vmsize-sized
+    // allocation — a payload's zerofill tail can be large and there is no reason
+    // to hold a private copy of it.
+    static const size_t kZeroChunkSize = 64 * 1024;
+    uint8_t *zeroChunk = NULL;
+
+    for (int segmentIndex = 0; segmentIndex < segmentCount; ++segmentIndex) {
+        const MIRemapSegment *segment = &segments[segmentIndex];
+        if (!MIRemapSegmentNeedsWritableRestore(segment->name)) continue;
+
+        // Same bounds check the buffer-side restore performs; a malformed
+        // payload must not make us read past our own mapping.
+        if (segment->fileBackedSize > segment->vmsize ||
+            segment->fileOffsetInSlice > mapping->sliceAvailable ||
+            segment->fileBackedSize > mapping->sliceAvailable - segment->fileOffsetInSlice) {
+            free(zeroChunk);
+            if (outErrorMessage) *outErrorMessage =
+                [NSString stringWithFormat:@"segment %s lies outside the payload slice", segment->name];
+            return KERN_INVALID_ARGUMENT;
+        }
+
+        mach_vm_address_t segmentRemote = remoteBase + (segment->vmaddr - minVmaddr);
+
+        if (segment->fileBackedSize > 0) {
+            kern_return_t status = mach_vm_write(target, segmentRemote,
+                                                 (vm_offset_t)(mapping->sliceBase + segment->fileOffsetInSlice),
+                                                 (mach_msg_type_number_t)segment->fileBackedSize);
+            if (status != KERN_SUCCESS) {
+                free(zeroChunk);
+                if (outErrorMessage) *outErrorMessage =
+                    [NSString stringWithFormat:@"mach_vm_write(%s): %s",
+                     segment->name, mach_error_string(status)];
+                return status;
+            }
+        }
+
+        uint64_t zeroFillLength = segment->vmsize - segment->fileBackedSize;
+        if (zeroFillLength == 0) continue;
+
+        if (!zeroChunk) {
+            zeroChunk = calloc(1, kZeroChunkSize);
+            if (!zeroChunk) {
+                if (outErrorMessage) *outErrorMessage = @"calloc for zerofill chunk failed";
+                return KERN_RESOURCE_SHORTAGE;
+            }
+        }
+        mach_vm_address_t zeroCursor = segmentRemote + segment->fileBackedSize;
+        uint64_t remaining = zeroFillLength;
+        while (remaining > 0) {
+            size_t chunk = remaining < kZeroChunkSize ? (size_t)remaining : kZeroChunkSize;
+            kern_return_t status = mach_vm_write(target, zeroCursor,
+                                                 (vm_offset_t)zeroChunk,
+                                                 (mach_msg_type_number_t)chunk);
+            if (status != KERN_SUCCESS) {
+                free(zeroChunk);
+                if (outErrorMessage) *outErrorMessage =
+                    [NSString stringWithFormat:@"mach_vm_write(%s zerofill): %s",
+                     segment->name, mach_error_string(status)];
+                return status;
+            }
+            zeroCursor += chunk;
+            remaining -= chunk;
+        }
+    }
+
+    free(zeroChunk);
+    return KERN_SUCCESS;
+}
+
+static int ParseChainedFixups(const MIRemapPayloadFileMapping *mapping,
+                              uint64_t payloadRemoteBase,
+                              MIRemapFixupEntry **outEntries,
+                              uint32_t *outCount,
+                              NSString **outErrorMessage) {
+    *outEntries = NULL;
+    *outCount = 0;
+
+    const uint8_t *sliceBase = mapping->sliceBase;
 
     size_t fixupsSize = 0;
     const struct dyld_chained_fixups_header *fixupsHeader =
         FindChainedFixupsHeaderInSlice(sliceBase, &fixupsSize);
     if (!fixupsHeader) {
-        munmap(fileMap, fileSize);
         if (outErrorMessage) *outErrorMessage = @"payload has no LC_DYLD_CHAINED_FIXUPS";
         return -1;
     }
@@ -745,7 +879,6 @@ static int ParseChainedFixups(NSString *payloadPath,
     uint32_t count = 0;
     MIRemapFixupEntry *entries = malloc(capacity * sizeof(MIRemapFixupEntry));
     if (!entries) {
-        munmap(fileMap, fileSize);
         if (outErrorMessage) *outErrorMessage = @"malloc for fixup work list failed";
         return -1;
     }
@@ -771,10 +904,27 @@ static int ParseChainedFixups(NSString *payloadPath,
             if (pageStart == DYLD_CHAINED_PTR_START_NONE) continue;
 
             // Chain nodes live in the slice at segment_offset + page*page_size
-            // + pageStart. segment_offset is dyld's "offset in memory to start
-            // of segment" — for typical dylibs this equals the segment's
-            // fileoff (identity mapping between file and vmaddr), which is the
-            // right index into our file mmap.
+            // + pageStart.
+            //
+            // ASSUMPTION, and it is a real one: segment_offset is dyld's
+            // "offset in memory to start of segment" — a VM offset — but we use
+            // it to index the FILE mmap. That is only correct while the segment
+            // has vmaddr == fileoff.
+            //
+            // The condition to check is not "does the payload have vmaddr ==
+            // fileoff everywhere" (it typically does not: a __DATA zerofill
+            // tail pushes __LINKEDIT out of alignment). It is narrower:
+            //
+            //   does any segment ahead of a fixup-bearing segment carry a
+            //   zerofill tail (vmsize > filesize)?
+            //
+            // Linkers put zerofill only in the last data segment, so the shift
+            // lands on __LINKEDIT, which carries no fixups and is not indexed
+            // this way — which is why this has never misfired. That is a
+            // convention, not a guarantee from the file format.
+            //
+            // The step 7c restore deliberately does NOT reuse this shortcut; it
+            // reads each segment's real fileoff/filesize.
             uint64_t chainStartInSegment = (uint64_t)page * segInfo->page_size + pageStart;
             const uint8_t *chainCursor =
                 sliceBase + segInfo->segment_offset + chainStartInSegment;
@@ -786,7 +936,6 @@ static int ParseChainedFixups(NSString *payloadPath,
                         realloc(entries, (size_t)nextCapacity * sizeof(MIRemapFixupEntry));
                     if (!newEntries) {
                         free(entries);
-                        munmap(fileMap, fileSize);
                         if (outErrorMessage) *outErrorMessage = @"realloc for fixup work list failed";
                         return -1;
                     }
@@ -864,7 +1013,6 @@ static int ParseChainedFixups(NSString *payloadPath,
         }
     }
 
-    munmap(fileMap, fileSize);
     *outEntries = entries;
     *outCount = count;
     return 0;
@@ -1094,11 +1242,9 @@ static int ParseChainedFixups(NSString *payloadPath,
         // already R+W in most payloads; re-applying is a no-op that still
         // enforces the COW split.
         for (int segmentIndex = 0; segmentIndex < payloadSegmentCount; ++segmentIndex) {
-            const char *segmentName = payloadSegments[segmentIndex].name;
-            if (strcmp(segmentName, "__DATA_CONST") != 0 &&
-                strcmp(segmentName, "__DATA") != 0 &&
-                strcmp(segmentName, "__AUTH_CONST") != 0 &&
-                strcmp(segmentName, "__AUTH") != 0) {
+            // Same predicate the step 7c restore uses — a segment opened for
+            // writing but not restored would keep the injector's runtime state.
+            if (!MIRemapSegmentNeedsWritableRestore(payloadSegments[segmentIndex].name)) {
                 continue;
             }
             mach_vm_address_t segmentRemote =
@@ -1106,6 +1252,41 @@ static int ParseChainedFixups(NSString *payloadPath,
             (void)mach_vm_protect(target, segmentRemote,
                                   payloadSegments[segmentIndex].vmsize, FALSE,
                                   VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY);
+        }
+
+        // ----- 7c. Restore those segments to the payload file's contents. -----
+        //
+        // Everything remapped so far came from the injector's *running* copy of
+        // the payload, which our own dlopen has already mutated: dyld applied
+        // its fixups, and the Swift and Objective-C runtimes wrote
+        // process-private state into __DATA. apply_fixups() below only rewrites
+        // chained-fixup slots, so that state would otherwise reach the target
+        // untouched — and the payload would read the injector's pointers.
+        //
+        // See Documentations/Evolutions/0001-restore-payload-writable-segments-before-fixups.md.
+        MIRemapPayloadFileMapping payloadFileMapping;
+        NSString *payloadMappingErrorMessage = nil;
+        if (!OpenPayloadFileMapping(payloadPath,
+                                    payloadMachHeader->cputype,
+                                    payloadMachHeader->cpusubtype,
+                                    &payloadFileMapping,
+                                    &payloadMappingErrorMessage)) {
+            if (error) *error = MakeError(MIMachInjectorRemapErrorPayloadSegmentsInvalid,
+                                          @"map payload file: %@", payloadMappingErrorMessage);
+            return NO;
+        }
+
+        NSString *restoreErrorMessage = nil;
+        status = RestoreWritableSegmentsInTarget(target, &payloadFileMapping,
+                                                 payloadSegments, payloadSegmentCount,
+                                                 payloadMinVmaddr, payloadRemoteBase,
+                                                 &restoreErrorMessage);
+        if (status != KERN_SUCCESS) {
+            ClosePayloadFileMapping(&payloadFileMapping);
+            if (error) *error = MakeError(MIMachInjectorRemapErrorMachVMWriteFailed,
+                                          @"restore payload writable segments: %@",
+                                          restoreErrorMessage);
+            return NO;
         }
 
         // ----- 8. Parse LC_DYLD_CHAINED_FIXUPS + write the work list into the
@@ -1123,12 +1304,11 @@ static int ParseChainedFixups(NSString *payloadPath,
         MIRemapFixupEntry *fixupEntries = NULL;
         uint32_t fixupCount = 0;
         NSString *fixupErrorMessage = nil;
-        int fixupParseStatus = ParseChainedFixups(payloadPath,
-                                                  payloadMachHeader->cputype,
-                                                  payloadMachHeader->cpusubtype,
+        int fixupParseStatus = ParseChainedFixups(&payloadFileMapping,
                                                   payloadRemoteBase,
                                                   &fixupEntries, &fixupCount,
                                                   &fixupErrorMessage);
+        ClosePayloadFileMapping(&payloadFileMapping);
         if (fixupParseStatus != 0) {
             if (error) *error = MakeError(MIMachInjectorRemapErrorPayloadSegmentsInvalid,
                                           @"parse chained fixups: %@", fixupErrorMessage);

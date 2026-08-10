@@ -31,6 +31,26 @@
 
 `ParseChainedFixups` + `apply_fixups` 就是把这套 dyld work 补上。
 
+### `apply_fixups` 的射程边界 —— 它只管 chained-fixup 槽
+
+**这一对函数补的是 dyld 的 fixup，不是 dyld 加载过程的全部副作用。**
+`apply_fixups` 遍历的是 `LC_DYLD_CHAINED_FIXUPS` 里列出的槽，**一个都不多**。凡是「运行时写入
+而非链接期决定」的内存，都在它射程之外 —— 典型的有：
+
+- Swift 泛型元数据缓存（`__swift_instantiateConcreteTypeFromMangledName` 的 cache 字）
+- `swift_once` / `dispatch_once` 的 once token
+- libobjc realize class 时写进 `__objc_data` 的 `class_rw_t` 指针
+- 一切 `__bss` / `__common` 里的全局状态
+
+这些字在 payload 文件里通常是 0，**没有任何 chained fixup 指向它们**。而 remap 搬的是 injector
+进程里那份**已经被 dlopen 跑过**的 payload，所以它们带着 injector 的私有值进了 target。
+
+处理它们的是**步骤 7c**（`MIMachInjectorRemapRestore.c`），不是 `apply_fixups`：先把可写段恢复成
+文件字节，再让 `apply_fixups` 在上面重写所有 fixup 槽。改这条链路时不要试图让 `apply_fixups`
+去覆盖这类槽 —— 它拿不到「该写什么值」的信息，那个信息只存在于文件里。
+
+完整推理见[提案 0001](../Evolutions/0001-restore-payload-writable-segments-before-fixups.md)。
+
 ## 分工：injector vs target
 
 **为什么必须两半**：arm64e PAC keys 是**每个进程独立**的（内核在进程创建时随机初始化 `IA/IB/DA/DB` 四把 key）。injector 里 `pacia x` 签出来的指针，扔到 target 里 `autia x` 会 auth 失败 → BRK。所以 injector 只能算到"raw target address + PAC 参数"，最后的 sign 一定要在 target 里进行。

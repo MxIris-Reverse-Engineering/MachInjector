@@ -37,6 +37,9 @@ Xcode 的 `DVTInstrumentsFoundation`（`RemoteInjectionAgent` + `libRemoteInject
 | 5. task_for_pid → target port                           |     |                        |
 | 6. mach_vm_remap(payload segments)                     ────▶│  payload __TEXT/DATA... |
 | 7. mach_vm_protect(payload __DATA*, R+W+COPY)          ────▶│  (writable in target)   |
+| 7c. 用 payload FILE 的原始字节覆盖 __DATA*，             ────▶│  __DATA* = 文件内容      |
+|     zerofill 尾部清零（抹掉 injector dlopen 时           |     |  （像刚映射、没跑过）     |
+|     被运行时写脏的状态）                                  |     |                        |
 | 8. ParseChainedFixups(payload FILE) → worklist          |     |                        |
 | 9. mach_vm_allocate + mach_vm_write(worklist)          ────▶│  fixup 工作表            |
 | 10. mach_vm_allocate + mach_vm_write(payload config)   ────▶│  config page            |
@@ -75,6 +78,11 @@ Xcode 的 `DVTInstrumentsFoundation`（`RemoteInjectionAgent` + `libRemoteInject
 
 **关键读法**：
 - 步骤 0–5 都是 injector 侧准备，不 touch target；
+- **步骤 6 搬的是 injector 进程里那份「已经跑过」的 payload**，不是文件 —— dyld 在 injector
+  里应用过 fixup，Swift / ObjC 运行时还往 `__DATA` 写过进程私有状态（泛型元数据缓存、
+  `swift_once` 标志、已 realize 的 class 记录）。这些都不是 chained-fixup 槽，`apply_fixups()`
+  够不着，所以必须靠步骤 7c 用文件字节覆盖回去。缺了这一步，payload 会在 target 里读到
+  injector 的指针 —— 详见 [提案 0001](../Evolutions/0001-restore-payload-writable-segments-before-fixups.md)；
 - 步骤 6–15 是 injector 用 Mach VM API 把 loader / payload / worklist / config / stack 布置到 target；
 - 步骤 15 起 target 里开始跑代码；
 - injector 步骤 16–17 只是善后（收原始 mach thread），不影响 payload 的执行；

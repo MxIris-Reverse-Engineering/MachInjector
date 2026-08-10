@@ -17,6 +17,8 @@ SPM library product，使用方以源码依赖并重新编译，未开启 librar
 
 ## 提案
 
-尚无提案。今后的新功能与架构改动一律从这里开始，编号自 `0001` 起。
+| # | 标题 | 状态 |
+|---|------|------|
+| [0001](0001-restore-payload-writable-segments-before-fixups.md) | Remap 前把 payload 可写段恢复为文件原始内容 | Implemented |
 
 `Design/` 下的架构文档是提案制确立前的产物，见[上级索引](../README.md)，保持原样不迁移。
