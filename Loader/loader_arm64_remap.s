@@ -12,11 +12,13 @@
 //     the overall injection data flow.
 //
 // This is NOT compiled into the MachInjector library binary the way the other
-// loader_arm64*.s files are (via `extern char __shellcode_start[]`). Instead
-// it is assembled + linked into a standalone dylib (`loader_arm64_remap.dylib`)
-// which the library ships as a bundled resource. MIMachInjectorRemap dlopens
-// that dylib in the injector, then `mach_vm_remap`s its __TEXT + __DATA
-// segments into the target process. See MIMachInjectorRemap.h for the reason.
+// loader_arm64*.s files are (via `extern char __shellcode_start[]`). It sits in
+// Loader/ rather than Sources/MachInjector/ exactly so SwiftPM never compiles
+// it: build_loader.sh assembles + links it into a standalone dylib, which
+// reaches the library only as the byte array in loader_arm64_remap_dylib.h.
+// MIMachInjectorRemap writes those bytes to a temp file, dlopens it in the
+// injector, then `mach_vm_remap`s its __TEXT + __DATA segments into the target
+// process. See MIMachInjectorRemap.h for the reason.
 //
 // The stage-1 entry does two things, in order:
 //   1. Call apply_fixups() (loader_arm64_remap_fixup.c) so every chained

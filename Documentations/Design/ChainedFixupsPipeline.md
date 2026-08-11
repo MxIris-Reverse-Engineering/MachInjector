@@ -202,7 +202,7 @@ typedef struct {
 
 **layout 约束**：这个结构必须 layout-identical 在两处代码里：
 - `Sources/MachInjector/MIMachInjectorRemap.m` 里 `typedef struct { ... } MIRemapFixupEntry;`
-- `Sources/MachInjector/loader_arm64_remap_fixup.c` 里 `struct MIRemapFixupEntry { ... };`
+- `Loader/loader_arm64_remap_fixup.c` 里 `struct MIRemapFixupEntry { ... };`
 
 改动其中一处**必须**同步改另一处，否则 injector 序列化的 entry 到了 target 里字段错位。
 

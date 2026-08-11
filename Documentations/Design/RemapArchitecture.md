@@ -95,12 +95,12 @@ remap 路径实际由**四份源文件 + 一份 embedded byte header** 构成：
 | 文件 | 运行位置 | 主要职责 |
 |:---|:---|:---|
 | `Sources/MachInjector/MIMachInjectorRemap.m` | injector 进程 | 编排整个流程；chained fixup 解析；libobjc map_images 定位；`+ injectToPID:...:` 对外 API |
-| `Sources/MachInjector/loader_arm64_remap.s` | target 进程（raw mach thread） | stage1 shim；读 6 个 `__DATA` 配置槽；bl `_apply_fixups`；再 bl `pthread_create_from_mach_thread` |
-| `Sources/MachInjector/loader_arm64_remap_fixup.c` | target 进程（raw mach thread） | `apply_fixups`：遍历 worklist，用 target PAC keys 重签每个 auth slot |
-| `Sources/MachInjector/loader_arm64_remap_handoff.c` | target 进程（**pthread**！有 TLS） | `pthread_thunk` + `perform_runtime_handoff`；调 libobjc `map_images` + 三个 `swift_register*`；tail-call payload entry |
+| `Loader/loader_arm64_remap.s` | target 进程（raw mach thread） | stage1 shim；读 6 个 `__DATA` 配置槽；bl `_apply_fixups`；再 bl `pthread_create_from_mach_thread` |
+| `Loader/loader_arm64_remap_fixup.c` | target 进程（raw mach thread） | `apply_fixups`：遍历 worklist，用 target PAC keys 重签每个 auth slot |
+| `Loader/loader_arm64_remap_handoff.c` | target 进程（**pthread**！有 TLS） | `pthread_thunk` + `perform_runtime_handoff`；调 libobjc `map_images` + 三个 `swift_register*`；tail-call payload entry |
 | `Sources/MachInjector/loader_arm64_remap_dylib.h` | build 产物 | 上面三个 loader 源文件编成 fat dylib 后 xxd 出来的字节数组 |
 
-其中 loader 三份是**独立编译成一个 arm64+arm64e 的 fat dylib**，然后 xxd 成 C byte array，链入 `MIMachInjectorRemap.m`。build 步骤见 [`Sources/MachInjector/build_loader.sh`](../../Sources/MachInjector/build_loader.sh)，内部细节见 [`LoaderDylibInternals.md`](LoaderDylibInternals.md)。
+其中 loader 三份是**独立编译成一个 arm64+arm64e 的 fat dylib**，然后 xxd 成 C byte array，链入 `MIMachInjectorRemap.m`。build 步骤见 [`Loader/build_loader.sh`](../../Loader/build_loader.sh)，内部细节见 [`LoaderDylibInternals.md`](LoaderDylibInternals.md)。
 
 ## Target 里的"三线程时序"
 

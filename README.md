@@ -183,7 +183,7 @@ It explains how each of the three paths is implemented, the four problems every 
 platform support matrix. The dlopen paths are then covered in
 [dlopen injection internals](Documentations/Design/DlopenInjectionInternals.md).
 
-The remap path is intricate — cross-process PAC signing, chained-fixup replay, libobjc / libswiftCore runtime notifications, and a 13-step VM-plumbing recipe. Before changing any of `Sources/MachInjector/MIMachInjectorRemap.m`, `Sources/MachInjector/loader_arm64_remap.s`, `Sources/MachInjector/loader_arm64_remap_fixup.c`, or `Sources/MachInjector/loader_arm64_remap_handoff.c`, read [`Documentations/Design/RemapArchitecture.md`](Documentations/Design/RemapArchitecture.md) — it is the entry-point document that then branches into four topical deep-dives (chained fixups, loader dylib internals, arm64e PAC, payload runtime handoff). Every source file's top-of-file docblock links back to the relevant document.
+The remap path is intricate — cross-process PAC signing, chained-fixup replay, libobjc / libswiftCore runtime notifications, and a 13-step VM-plumbing recipe. Before changing any of `Sources/MachInjector/MIMachInjectorRemap.m`, `Loader/loader_arm64_remap.s`, `Loader/loader_arm64_remap_fixup.c`, or `Loader/loader_arm64_remap_handoff.c`, read [`Documentations/Design/RemapArchitecture.md`](Documentations/Design/RemapArchitecture.md) — it is the entry-point document that then branches into four topical deep-dives (chained fixups, loader dylib internals, arm64e PAC, payload runtime handoff). Every source file's top-of-file docblock links back to the relevant document.
 
 ## Testing
 
