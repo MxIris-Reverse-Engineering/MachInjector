@@ -1,13 +1,13 @@
 # 0002 - 把注入失败分类成可判定的错误码，并公开三个 domain 的枚举
 
-- **状态**: Draft
+- **状态**: Implemented
 - **作者**: JH
 - **创建日期**: 2026-08-11
 - **最后更新**: 2026-08-11
 - **所属愿景**: 无
 - **关联提案**: 无
-- **实现分支 / PR**: 待定
-- **配套文档**: 待定（落地时评估，见「落地步骤」收尾）
+- **实现分支 / PR**: main
+- **配套文档**: 无（落地时按判据评估，结论见「与提案的差异」最后一条）
 
 ## 摘要
 
@@ -572,9 +572,103 @@ remap 的编号空间（remap 的编号按它自己的 13 步管线排，塞不�
 - **新术语** —— 本提案未引入自造词。「平台二进制」（platform binary）是 AMFI 的既有术语，
   首次出现处解释一句即可，不必建术语表。
 
+
+## 与提案的差异
+
+落地时与提案不一致的地方记在这里，**提案正文保持原貌不回头修改**。
+
+### 1. 判定函数的签名多了一个 `pid` 参数
+
+提案「详细设计」给的签名是 `(report, reportWasReadable, targetIsAlive, dylibPath)`。实际实现是：
+
+```objc
+NSError *_Nullable MIMachInjectorErrorForDlopenReport(const MIMachInjectorDlopenReport *_Nullable report,
+                                                      BOOL reportWasReadable,
+                                                      BOOL targetIsAlive,
+                                                      pid_t processIdentifier,
+                                                      NSString *dylibPath);
+```
+
+理由：码 `29` 的原有错误消息里带目标 pid（「target process %d terminated while loading …」）。
+按提案的签名就得把 pid 从消息里删掉，而本提案的全部目的是**不丢信息**，为了签名好看去掉一个
+诊断字段与提案自己的动机冲突。
+
+### 2. 两条路径的非 arm64 stub 也在用 `code:1`，提案没覆盖
+
+提案清点了同步 28 个、异步 21 个失败点，但漏掉了 `#else // !__arm64__` 分支里的 stub ——
+`MIMachInjectorAsync.m` 有两处、`MIMachInjectorRemap.m` 有一处，都直接构造 `NSError` 且写死
+`code:1`（绕过了各自的 `MakeError`，所以按调用点数清点时看不见）。
+
+这在枚举落地后从「无意义」变成「说谎」：`1` 在异步枚举里是「分配注入上下文失败」，在 remap
+枚举里是「写 loader dylib 到临时路径失败」，而这两件事在 stub 里都没发生过。
+
+按提案「新号一律追加在尾部」的规则处理：
+
+| 新增 | 值 | 理由 |
+|---|---|---|
+| `MIMachInjectorAsyncErrorArchitectureUnsupported` | 30 | 同步路径占了 23–29，追加在两条 dlopen 路径共用号段的尾部 |
+| `MIMachInjectorRemapErrorArchitectureUnsupported` | 17 | remap 自成一套，追加在它自己的尾部 |
+
+这一条是提案「落地步骤」第 7 步（横向排查绕过 `MakeError` 的裸 `NSError`）真正抓到的东西。
+本机是 arm64，这三处 stub 平时不参与编译，因此改完额外跑了 `swift build --arch x86_64` 验证。
+
+### 3. remap 头文件里的编号表格是**移走**而不是保留
+
+提案第 5 条写的是「那份『Debug hints by code』表继续保留，但改为挂在枚举各 case 的文档注释上」。
+实现时把头部注释块里的「ERROR CODES」表格与「Debug hints by code」段整个删掉，只留一句指向枚举。
+
+理由：两份逐码清单必然漂移，而这正是本提案要消灭的那类问题（异步路径的表格与代码分离了三个
+版本，才让 21 个裸字面量活到今天）。枚举现在是唯一的一份，IDE 里也能直接看到。头部注释里
+与逐码无关的那段（payload 跑起来但目标崩在 unrecognized selector）保留原样。
+
+### 4. 落地步骤第 8 步（真实注入验证）未执行
+
+需要 root、一个平台二进制目标，以及来回改机器的 AMFI 全局开关。这台机器上没有做，也不该由
+agent 擅自改系统配置。**因此「拿到 `code 18` + `MIMachInjectorRemoteErrorMessageKey` 里有
+AMFI 拒绝理由」这条端到端链路仍未在真机上验证过**，只有单元测试覆盖了判定逻辑本身
+（给定 report 字节 → 得到哪个码、`dlerror` 原文有没有转运到新 key）。
+
+### 5. Swift 侧命名用嵌套 `NS_SWIFT_NAME`，提案没提
+
+提案「命名」一节只给了 ObjC 侧的枚举名，Swift 侧默认导入的结果是 `MIMachInjectorError`
+—— 与已经用 `NS_SWIFT_NAME` 去掉前缀的类名 `MachInjector` 不一致。落地时按用户要求补上：
+
+| 符号 | ObjC | Swift |
+|---|---|---|
+| 枚举 | `MIMachInjectorErrorCode` | `MachInjector.Error`（值为 `MachInjector.Error.Code`） |
+| domain | `MIMachInjectorErrorDomain` | `MachInjector.errorDomain` |
+| userInfo key | `MIMachInjectorRemoteErrorMessageKey` | `MachInjector.remoteErrorMessageKey` |
+
+异步与 remap 同形（`MachInjectorAsync.Error` / `MachInjectorRemap.Error`）。C 与 ObjC 侧一律保持
+`MI` 前缀不变。
+
+**这里有一个不查 SDK 就会做错的点**：`NS_SWIFT_NAME` 必须写成带点的嵌套形式。写成平铺的
+`NS_SWIFT_NAME(MachInjectorErrorCode)` 也能编译，但它只重命名枚举本身，`NS_ERROR_ENUM` 合成的
+那个 error 类型仍按 ObjC 名派生 —— 结果是一个类型两个 Swift 名字。带点形式则两者一起改。
+
+Apple 自己是在 `.apinotes` 里写这件事的（`BackgroundTasks.apinotes`：
+`Name: BGTaskSchedulerErrorCode` / `SwiftName: BGTaskScheduler.Error`），头文件那个位置放的是
+`API_AVAILABLE`。**apinotes 对本库不可用**：它由**消费方**的 ClangImporter 读取，放进 `include/`
+不会自动生效（全新 scratch path 实测，另外两个位置也一样），只有下游 target 传
+`-Xcc -iapinotes-modules -Xcc <绝对路径>` 才生效 —— 对一个源码分发的 SPM 库不成立。头文件里的
+嵌套 `NS_SWIFT_NAME` 是等效且可分发的写法。
+
+这条约定已写进 `AGENTS.md` 的 Conventions，以及三个枚举的文档注释。
+
+**破坏性**：`MIMachInjectorAsyncErrorDomain` / `MIMachInjectorRemapErrorDomain` 原本的 Swift 名是
+`MachInjectorAsyncErrorDomain` / `MachInjectorRemapErrorDomain`（平铺），现改为嵌套形式，写了旧名的
+Swift 代码会编译不过。与本提案已有的 `code` 语义变化同属 0.5.0 的破坏性变更，一并列入 release notes。
+
+### 6. 配套专题文章：不写
+
+按判据评估（「实现里有下次维护会踩、但代码本身看不出来的决策」）：编号对齐的理由已经写在
+三个头文件的枚举声明处、`AGENTS.md` 的 hazards、以及本提案里，专题文章只会是第四份复述。
+术语方面本提案未引入自造词。
+
 ## 决策日志
 
 | 日期 | 变更 | 说明 |
 |------|------|------|
 | 2026-08-11 | Created as Draft | 起因是 `FinderSidebarIconFix` 向 Finder 注入只拿到 `MIMachInjectorErrorDomain error 1`，根因（AMFI 库校验拒绝 payload）在传递中丢光。横向排查发现三条路径都没有公开错误码枚举，同步路径最严重（28 个失败点共用 `code:1`）。核心设计决策是**同步路径复用异步路径的编号语义而非自成一套**，理由是仓库里已有 `MIMachInjectorDlopenResultCode` 与 notepad `result_code` 含义相反这个被写进 hazards 的坑，不能在公开 API 上重演。下游三个仓库已核实无一读取 `NSError.code`，故重新编号的实际破坏面为零。AMFI 判定链的三个可观测推论已在本机核实（`amfid` 字符串、plist 内容、SIP 状态），`csr_check` 常量值未复核。 |
 | 2026-08-11 | 先行修正「关 SIP 就不强制库校验」这个错误理由 | 用户确认该机制已验证过（amfid 只在 SIP 关闭时才读那份 plist，真正的开关是 `DisableLibraryValidation`），批准在提案落地前单独改注释。改了四个文件，明细见「前期调研」的对应一节。**这一项不再属于本提案的落地范围**，提案保留它只是为了记录理由为什么是错的。 |
+| 2026-08-11 | Accepted → Implemented | 用户批准后一次落地。三条路径的枚举全部公开，同步路径 26 个失败点逐一分类（另两个移入判定函数），异步 21 处裸字面量替换为具名常量且取值一个未变，remap 枚举从 `.m` 移到公开头文件。新增 `MIMachInjectorRemoteErrorMessageKey`，以及可测的 `MIMachInjectorErrorForDlopenReport()`。测试从 6 个增加到 17 个：复现测试（两个失败点必须给出不同的码）在实现前确认为**失败**（实测两者都是 `1`），实现后通过；另外把异步 21 个、remap 16 个已发布取值逐一钉住，防止将来有人「顺手」重新编号。落地过程中发现并修正了提案未覆盖的三处 stub 错误码，明细见「与提案的差异」。 |

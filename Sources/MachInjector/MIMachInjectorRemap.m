@@ -139,27 +139,6 @@ static os_log_t MIRemapDiagLog(void) {
 
 NSErrorDomain const MIMachInjectorRemapErrorDomain = @"MIMachInjectorRemapErrorDomain";
 
-// -----------------------------------------------------------------------------
-// Error codes must match the table in MIMachInjectorRemap.h.
-// -----------------------------------------------------------------------------
-typedef NS_ENUM(NSInteger, MIMachInjectorRemapErrorCode) {
-    MIMachInjectorRemapErrorLoaderWriteFailed        = 1,
-    MIMachInjectorRemapErrorLoaderDlopenFailed       = 2,
-    MIMachInjectorRemapErrorLoaderSymbolsMissing     = 3,
-    MIMachInjectorRemapErrorPayloadDlopenFailed      = 4,
-    MIMachInjectorRemapErrorPayloadEntryMissing      = 5,
-    MIMachInjectorRemapErrorPayloadSegmentsInvalid   = 6,
-    MIMachInjectorRemapErrorSwiftCoreDlopenFailed    = 7,
-    MIMachInjectorRemapErrorSwiftRegistersMissing    = 8,
-    MIMachInjectorRemapErrorMapImagesNotFound        = 9,
-    MIMachInjectorRemapErrorTaskForPIDFailed         = 10,
-    MIMachInjectorRemapErrorMachVMAllocateFailed     = 11,
-    MIMachInjectorRemapErrorMachVMWriteFailed        = 12,
-    MIMachInjectorRemapErrorMachVMRemapPayloadFailed = 13,
-    MIMachInjectorRemapErrorMachVMRemapLoaderFailed  = 14,
-    MIMachInjectorRemapErrorThreadStateConvertFailed = 15,
-    MIMachInjectorRemapErrorRemoteThreadStartFailed  = 16,
-};
 
 typedef kern_return_t (*thread_convert_thread_state_fn_t)(
     thread_act_t, int, thread_state_flavor_t,
@@ -1568,7 +1547,7 @@ NSErrorDomain const MIMachInjectorRemapErrorDomain = @"MIMachInjectorRemapErrorD
     (void)pid; (void)payloadPath; (void)entrySymbol;
     if (error) {
         *error = [NSError errorWithDomain:MIMachInjectorRemapErrorDomain
-                                     code:1
+                                     code:MIMachInjectorRemapErrorArchitectureUnsupported
                                  userInfo:@{
             NSLocalizedDescriptionKey: @"MIMachInjectorRemap is only available on arm64 / arm64e."
         }];

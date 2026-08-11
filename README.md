@@ -28,6 +28,33 @@ Distilled from [yabai](https://github.com/koekeishiya/yabai)'s injection code an
   - Holding `com.apple.security.cs.debugger` (and being properly code-signed)
   - Delegating injection to a privileged helper (see the [example app](#example-app))
 
+### Library validation
+
+The two `dlopen` paths ask the *target* to load your dylib, so the target's
+library validation applies to it. A target that is a platform binary — Finder,
+Dock, and most of `/System` — refuses any dylib that is not itself a platform
+binary, and the refusal surfaces as
+`MIMachInjectorErrorTargetRefusedToLoadDylib` / `MachInjector.Error.targetRefusedToLoadDylib`
+(code 18) with the kernel logging
+`mapping process is a platform binary, but mapped file is not`.
+
+Whether validation is enforced is a property of the machine, not of your
+process. `amfid` consults a single global switch:
+
+```bash
+sudo defaults write /Library/Preferences/com.apple.security.libraryvalidation.plist \
+    DisableLibraryValidation -bool true
+```
+
+**Disabling SIP is necessary but not sufficient.** SIP only controls whether
+`amfid` reads that file at all: with SIP enabled the key is ignored entirely, and
+with SIP disabled but the key unset, validation is still enforced. Both are
+required. `amfid` watches the file and generally picks up a change immediately;
+the confirmation is `amfid` logging `library validation is globally disabled`.
+
+This does not apply to `MachInjectorRemap`, which never calls `dlopen` in the
+target — that is the reason it exists.
+
 ## Installation
 
 ### Swift Package Manager
@@ -271,15 +298,67 @@ Open `MachInjector.xcworkspace` (not the empty `MachInjector.xcodeproj` stub at 
 
 ## Error codes
 
-The asynchronous path defines codes 1–22 under `MIMachInjectorAsyncErrorDomain`. See the table in [`MIMachInjectorAsync.h`](Sources/MachInjector/include/MIMachInjectorAsync.h) for the full list — common ones include:
+Each path publishes an enumeration, so a caller branches on a named case rather
+than on an integer literal: `MIMachInjectorErrorCode`,
+`MIMachInjectorAsyncErrorCode`, and `MIMachInjectorRemapErrorCode`. Every case
+carries its own documentation, including where to start looking when you hit it.
 
-**`MIMachInjectorAsyncErrorDomain`**
+In Swift each one is nested under the class it belongs to:
+
+```swift
+do {
+    try MachInjector.inject(pid: pid, dylibPath: payloadPath)
+} catch MachInjector.Error.taskPortUnavailable {
+    // Not a permissions problem you can route around: MachInjectorRemap needs
+    // the same task port.
+} catch MachInjector.Error.targetRefusedToLoadDylib {
+    let reason = (error as NSError).userInfo[MachInjector.remoteErrorMessageKey] as? String
+    // dlerror's own words — a code signature complaint points at the AMFI
+    // switch below, a seatbelt one at MachInjectorRemap.
+}
+```
+
+`MachInjectorAsync.Error` and `MachInjectorRemap.Error` follow the same shape,
+as do `MachInjectorAsync.errorDomain` and `MachInjectorRemap.errorDomain`.
+
+**Read the domain before the code.** The two `dlopen` paths deliberately share
+one numbering — `3` is a missing task port in both, `18` is a refused dylib in
+both — so a caller that uses both can share one `switch`. The remap path does
+not share it: its `10` is the missing task port. Matching a bare integer without
+checking `domain` will eventually mislead you.
+
+The values in each enumeration are not contiguous. The synchronous path leaves a
+hole wherever the async path has a failure it cannot produce, because giving one
+integer two meanings across two domains callers use together is worse than any
+number of gaps. New failure points are appended after the highest existing value;
+published values never move.
+
+> **Changed in 0.5.0.** The synchronous path previously returned `code: 1` for
+> every failure, with the reason only in `userInfo`. It now returns a classified
+> code, and `1` is deliberately left unassigned so that a stale `error.code == 1`
+> check matches nothing instead of silently matching one specific failure.
+
+**`MIMachInjectorErrorDomain`** (synchronous) — full list in
+[`MIMachInjector.h`](Sources/MachInjector/include/MIMachInjector.h); the ones
+worth branching on:
+
+| Code | Meaning |
+|---:|---|
+| 3 | `task_for_pid()` failed. **Falling back to the remap path does not help** — it needs the same port |
+| 18 | The target refused the dylib. `userInfo[MIMachInjectorRemoteErrorMessageKey]` (Swift: `MachInjector.remoteErrorMessageKey`) holds `dlerror`'s text. Code signature or library validation → see [Requirements](#library-validation); seatbelt denying `file-map-executable` → use `MachInjectorRemap` |
+| 19 | Timed out. Also what an in-target `pthread_create` failure looks like from this path |
+| 29 | The target died while loading — usually a payload whose page hashes do not match its signature |
+
+**`MIMachInjectorAsyncErrorDomain`** — full list in
+[`MIMachInjectorAsync.h`](Sources/MachInjector/include/MIMachInjectorAsync.h);
+common ones:
 
 | Code | Meaning |
 |---:|---|
 | 3 | `task_for_pid()` failed (permission denied or process not found) |
 | 10 | Dylib path too long (max 1279 bytes) |
 | 14 | Failed to create remote thread |
+| 17 | `pthread_create` failed inside the target (this path can see it; the synchronous one reports 19) |
 | 18 | `dlopen()` failed in target process (check `remoteErrorMessage`) |
 | 19 | Injection timed out |
 
@@ -302,6 +381,17 @@ The asynchronous path defines codes 1–22 under `MIMachInjectorAsyncErrorDomain
 | 14 | Failed to `mach_vm_remap` loader segments into target |
 | 15 | Failed to convert thread state (arm64e ptrauth) |
 | 16 | Failed to start remote mach thread |
+| 17 | Not running on arm64 / arm64e |
+
+### Using these across a process boundary
+
+This library is usually deployed with the injection happening in a privileged
+helper and the result travelling back to an app over XPC — which is exactly where
+`NSError.userInfo` tends not to survive, since whether it does is up to the two
+ends' coding agreement, not up to this library. `domain` and `code` always
+survive; treat them as the machine-readable answer and transport
+`localizedDescription` (and `MIMachInjectorRemoteErrorMessageKey` / `MachInjector.remoteErrorMessageKey`, when present)
+yourself if you want the human-readable one on the far side.
 
 ## References
 

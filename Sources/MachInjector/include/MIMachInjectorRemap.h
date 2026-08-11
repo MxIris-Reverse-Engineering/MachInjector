@@ -143,62 +143,8 @@
  * ERROR CODES  (domain: MIMachInjectorRemapErrorDomain)
  * =============================================================================
  *
- *   Code  Description
- *   ----  -----------
- *   1     Failed to write embedded loader dylib to temp path
- *   2     Failed to dlopen embedded loader dylib
- *   3     Loader dylib missing required symbols
- *   4     Failed to dlopen payload dylib
- *   5     Payload does not export the requested entry symbol
- *   6     Failed to enumerate payload segments (unknown layout)
- *   7     Failed to open libswiftCore for Swift-metadata register APIs
- *   8     libswiftCore missing required Swift register symbols
- *   9     Failed to locate libobjc map_images via dyld gAPIs
- *   10    task_for_pid failed (missing permissions or dead target)
- *   11    Failed to allocate memory in target process
- *   12    Failed to mach_vm_write config page in target
- *   13    Failed to mach_vm_remap payload segments into target
- *   14    Failed to mach_vm_remap loader segments into target
- *   15    Failed to convert thread state (arm64e ptrauth)
- *   16    Failed to start remote mach thread
- *
- * Debug hints by code (where to start looking when you hit one):
- *   1-2   Disk full / SIP hardened /private/tmp / codesign broken by a
- *         hostile hook. Fresh reboot usually rules disks out.
- *   3     `build_loader.sh` was never run OR the injector's
- *         `MIMachInjectorRemap.o` predates the current
- *         `loader_arm64_remap_dylib.h`. Touch MIMachInjectorRemap.m and
- *         rebuild.
- *   4-5   Payload path wrong, payload lacks an arm64e slice, payload's
- *         entry symbol misspelled, or entry symbol has C++ mangling that
- *         `dlsym` won't resolve (declare it `extern "C"` /
- *         `__attribute__((visibility("default")))`).
- *   6     Payload has more than 16 segments (unusual — bump the local
- *         array size in `+ injectToPID:`) OR a segment with the same
- *         name as SEG_LINKEDIT / SEG_PAGEZERO that's meaningful.
- *   7-8   libswiftCore not installed OR OS updated and renamed symbols.
- *         Confirm with `dlsym(handle, "swift_registerTypeMetadataRecords")`
- *         from a small stand-alone process.
- *   9     dyld gAPIs table layout changed between OS versions. See
- *         FindLibObjCMapImages heuristic — the 3-consecutive-qword scan
- *         window might need re-tuning. Enable the diag log and look at
- *         the step4 candidate list.
- *   10    Injector lacks task_for_pid. On modern macOS: SIP off + running
- *         as root, OR `com.apple.system-task-ports.debug` entitlement +
- *         `Developer Mode` on for the injector's audit token, OR use the
- *         helper daemon pattern in Example/.
- *   11-12 Target process died between task_for_pid and mach_vm_allocate,
- *         OR target's ASLR left no contiguous span (rare).
- *   13-14 Target's VM is full, OR the source pages in the injector are
- *         no longer readable (dyld unloaded a dependency). Never dlclose
- *         payload / loader in the injector — protection changes leak
- *         through the shared mapping.
- *   15    Kernel-side thread_convert_thread_state failure — extremely
- *         unusual; likely a kernel bug or an incompatible OS release.
- *         Diagnose with kext logging.
- *   16    thread_create_running failed — target rejected the ARM
- *         thread state we built. Likely PC address arithmetic wrong
- *         (loaderRemoteBase + stage1Offset) or SP not aligned.
+ * See MIMachInjectorRemapErrorCode below. Each case carries its own
+ * description and the first thing to check when you hit it.
  *
  * When a payload runs but the TARGET crashes shortly after with
  * `+[<SomeClass> (dynamic selector)]: unrecognized selector`, the fault
@@ -222,7 +168,135 @@
 NS_ASSUME_NONNULL_BEGIN
 
 FOUNDATION_EXPORT NSErrorDomain const MIMachInjectorRemapErrorDomain
-    NS_SWIFT_NAME(MachInjectorRemapErrorDomain);
+    NS_SWIFT_NAME(MachInjectorRemap.errorDomain);
+
+/// Why a remap injection failed, in the order the 13-step recipe reaches them:
+/// the loader is prepared in the injector (1-3), then the payload (4-9), then
+/// everything crosses into the target (10-16).
+///
+/// **Check the domain before the code.** These values are the ones this header
+/// has published since the remap path shipped, and none of them changed when the
+/// enumeration became public. They are, deliberately, *not* the numbering the
+/// two dlopen paths share: `10` here is a missing task port, which is `3` in
+/// `MIMachInjectorErrorCode` and `MIMachInjectorAsyncErrorCode`. Renumbering
+/// would have broken the one published contract this library actually had, so
+/// the mismatch stays and the domain is what tells them apart.
+///
+/// In Swift: `MachInjectorRemap.Error`. The dotted `NS_SWIFT_NAME` is required
+/// rather than cosmetic — see the note on `MIMachInjectorErrorCode`.
+typedef NS_ERROR_ENUM(MIMachInjectorRemapErrorDomain, MIMachInjectorRemapErrorCode) {
+    /// Failed to write the embedded loader dylib to its temp path.
+    ///
+    /// Disk full, a hardened `/private/tmp`, or a hostile hook breaking
+    /// `codesign`. A fresh reboot usually rules the disk out.
+    MIMachInjectorRemapErrorLoaderWriteFailed = 1,
+
+    /// Failed to `dlopen` the embedded loader dylib in the injector.
+    ///
+    /// Same causes as `1`.
+    MIMachInjectorRemapErrorLoaderDlopenFailed = 2,
+
+    /// The loader dylib does not export the symbols the injector needs.
+    ///
+    /// `build_loader.sh` was never run, or the injector's
+    /// `MIMachInjectorRemap.o` predates the current
+    /// `loader_arm64_remap_dylib.h`. Touch `MIMachInjectorRemap.m` and rebuild
+    /// — build systems do not track the generated header.
+    MIMachInjectorRemapErrorLoaderSymbolsMissing = 3,
+
+    /// Failed to `dlopen` the payload dylib in the injector.
+    ///
+    /// Wrong path, or the payload has no arm64e slice.
+    MIMachInjectorRemapErrorPayloadDlopenFailed = 4,
+
+    /// The payload does not export the requested entry symbol.
+    ///
+    /// Misspelled, or C++-mangled so `dlsym` will not resolve it — declare it
+    /// `extern "C" __attribute__((visibility("default")))`.
+    MIMachInjectorRemapErrorPayloadEntryMissing = 5,
+
+    /// Failed to enumerate the payload's segments (unknown layout).
+    ///
+    /// More than 16 segments (unusual — raise the local array size in
+    /// `+injectToPID:`), or a meaningful segment named like `SEG_LINKEDIT` /
+    /// `SEG_PAGEZERO`.
+    MIMachInjectorRemapErrorPayloadSegmentsInvalid = 6,
+
+    /// Failed to open libswiftCore for the Swift metadata register APIs.
+    ///
+    /// libswiftCore is not installed, or an OS update renamed the symbols.
+    /// Confirm with `dlsym(handle, "swift_registerTypeMetadataRecords")` from a
+    /// small stand-alone process.
+    MIMachInjectorRemapErrorSwiftCoreDlopenFailed = 7,
+
+    /// libswiftCore is missing the Swift register symbols.
+    ///
+    /// Same causes as `7`.
+    MIMachInjectorRemapErrorSwiftRegistersMissing = 8,
+
+    /// Failed to locate libobjc's `map_images` through dyld's gAPIs table.
+    ///
+    /// The table's layout changed between OS versions. See the
+    /// `FindLibObjCMapImages` heuristic — its 3-consecutive-qword scan window
+    /// may need re-tuning. Enable the diagnostic log and inspect the step-4
+    /// candidate list.
+    MIMachInjectorRemapErrorMapImagesNotFound = 9,
+
+    /// `task_for_pid` failed: missing permissions, or a dead target.
+    ///
+    /// On modern macOS: SIP off and running as root, or the
+    /// `com.apple.system-task-ports.debug` entitlement with Developer Mode on
+    /// for the injector's audit token, or the helper daemon pattern in
+    /// `Example/`. **The dlopen paths need the same port**, so switching to
+    /// them does not help.
+    MIMachInjectorRemapErrorTaskForPIDFailed = 10,
+
+    /// Failed to allocate memory in the target process.
+    ///
+    /// The target died between `task_for_pid` and `mach_vm_allocate`, or its
+    /// ASLR left no contiguous span (rare).
+    MIMachInjectorRemapErrorMachVMAllocateFailed = 11,
+
+    /// Failed to `mach_vm_write` the config page into the target.
+    ///
+    /// Same causes as `11`.
+    MIMachInjectorRemapErrorMachVMWriteFailed = 12,
+
+    /// Failed to `mach_vm_remap` the payload's segments into the target.
+    ///
+    /// The target's VM is full, or the source pages in the injector are no
+    /// longer readable because dyld unloaded a dependency. **Never `dlclose`
+    /// the payload or loader in the injector** — dyld's unload path changes
+    /// protections, and the change leaks through the shared mapping into the
+    /// target.
+    MIMachInjectorRemapErrorMachVMRemapPayloadFailed = 13,
+
+    /// Failed to `mach_vm_remap` the loader's segments into the target.
+    ///
+    /// Same causes as `13`.
+    MIMachInjectorRemapErrorMachVMRemapLoaderFailed = 14,
+
+    /// `thread_convert_thread_state` failed (arm64e ptrauth).
+    ///
+    /// A kernel-side failure, extremely unusual: likely a kernel bug or an
+    /// incompatible OS release. Diagnose with kext logging.
+    MIMachInjectorRemapErrorThreadStateConvertFailed = 15,
+
+    /// `thread_create_running` failed to start the remote mach thread.
+    ///
+    /// The target rejected the ARM thread state that was built for it. Likely
+    /// wrong PC arithmetic (`loaderRemoteBase + stage1Offset`) or an unaligned
+    /// stack pointer.
+    MIMachInjectorRemapErrorRemoteThreadStartFailed = 16,
+
+    /// This class is arm64-only and the process running it is not arm64.
+    ///
+    /// The remap path needs the arm64 thread-state ABI and an arm64 loader
+    /// dylib; neither has an x86_64 equivalent. Use `MIMachInjector`, which
+    /// supports x86_64. Appended at 17 because this path numbers its own
+    /// failures independently of the two dlopen paths.
+    MIMachInjectorRemapErrorArchitectureUnsupported = 17,
+} NS_SWIFT_NAME(MachInjectorRemap.Error);
 
 /// Struct handed to the payload entry point in the target process. All fields
 /// are 64-bit unsigned integers. Addresses live in the target's virtual space,

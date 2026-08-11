@@ -1,4 +1,6 @@
 #import "MIMachInjector.h"
+
+#import "MIMachInjectorInternal.h"
 #include <Cocoa/Cocoa.h>
 #include <mach/mach.h>
 #include <mach/mach_vm.h>
@@ -18,41 +20,11 @@ extern char *sandbox_extension_issue_file_to_process(const char *extension_class
 // Completion magic number: "DONE" in little-endian (0x444f4e45)
 #define MI_INJECTION_DONE 0x444f4e45
 
-// Report block the shellcode's pthread fills in after calling dlopen, allocated
-// read/write in the target by the injector. Layout must stay in sync with the
-// REPORT_* offsets in loader_arm64.s / loader_x86_64.s.
-//
-// The mach thread's "DONE" register signal only proves pthread_create returned;
-// dlopen runs on the pthread afterwards. Without this block a target that
-// refuses the payload — AMFI library validation on a platform binary, a
-// seatbelt profile denying file-map-executable, a bad path — is
-// indistinguishable from a successful load, and the injector reports success
-// while nothing whatsoever was loaded.
-typedef struct {
-    int32_t resultCode;
-    int32_t reserved;
-    uint64_t handle;
-    char errorMessage[256];
-} MIMachInjectorDlopenReport;
-
-// WARNING — this and MINotepadResultCode in MIMachInjectorAsync.m are DIFFERENT
-// ENCODINGS OF THE SAME IDEA, and `1` means the opposite thing in each:
-//
-//              value 0            value 1              value 2
-//   this file  not reported yet   dlopen succeeded     dlopen failed
-//   async path success            dlopen failed        pthread_create failed
-//
-// See the matching note in MIMachInjectorAsync.m for why they are not unified.
-typedef NS_ENUM(int32_t, MIMachInjectorDlopenResultCode) {
-    MIMachInjectorDlopenResultCodePending = 0,
-    MIMachInjectorDlopenResultCodeLoaded = 1,
-    MIMachInjectorDlopenResultCodeFailed = 2,
-};
-
-_Static_assert(offsetof(MIMachInjectorDlopenReport, resultCode) == 0x00, "report layout drifted from the loader shellcode");
-_Static_assert(offsetof(MIMachInjectorDlopenReport, handle) == 0x08, "report layout drifted from the loader shellcode");
-_Static_assert(offsetof(MIMachInjectorDlopenReport, errorMessage) == 0x10, "report layout drifted from the loader shellcode");
-_Static_assert(sizeof(((MIMachInjectorDlopenReport *)0)->errorMessage) == 0x100, "report layout drifted from the loader shellcode");
+// The report block the shellcode's pthread fills in after calling dlopen, its
+// result codes, and the layout assertions that keep it in sync with the
+// REPORT_* offsets in loader_arm64.s / loader_x86_64.s all live in
+// MIMachInjectorInternal.h — the tests build one to exercise the verdict below
+// without a task port.
 
 // How long to wait for the pthread's dlopen to land after the mach thread
 // signalled "DONE". A payload whose constructor is slow can outlast this; a
@@ -130,12 +102,80 @@ NSErrorDomain const MIMachInjectorErrorDomain = @"MIMachInjectorErrorDomain";
 // The arm64e injection path is based on work by Jeremy Legendre (https://github.com/jslegendre)
 //
 
-static NSError *MIMachInjectorErrorMake(NSString *description, ...) {
+NSErrorUserInfoKey const MIMachInjectorRemoteErrorMessageKey = @"MIMachInjectorRemoteErrorMessage";
+
+// Every failure in this file goes through here, so that classifying one is a
+// matter of naming a code rather than remembering to. The code parameter is
+// typed rather than NSInteger: a new failure point cannot compile until it has
+// decided which code it is.
+static NSError *MIMachInjectorErrorMake(MIMachInjectorErrorCode code, NSString *description, ...) {
     va_list args;
     va_start(args, description);
     description = [[NSString alloc] initWithFormat:description arguments:args];
     va_end(args);
-    return [NSError errorWithDomain:MIMachInjectorErrorDomain code:1 userInfo:@{NSLocalizedDescriptionKey: description}];
+    return [NSError errorWithDomain:MIMachInjectorErrorDomain code:code userInfo:@{NSLocalizedDescriptionKey: description}];
+}
+
+// Turn one poll of the target's report block into a verdict.
+//
+// Kept free of the task port, the polling and the VM read on purpose: those need
+// root and cannot be unit-tested, while this — which report means which error —
+// is where the interesting decisions are and is exactly what proposal 0002 came
+// from. MIMachInjectorErrorCodeTests exercises every branch below.
+//
+// Success is the answer in every ambiguous case. A payload whose constructor
+// outlasts the poll budget, a page that cannot be read, a report still pending:
+// all of them keep the behaviour this class had before it reported dlopen
+// verdicts at all. Only two answers fail an injection.
+NSError *MIMachInjectorErrorForDlopenReport(const MIMachInjectorDlopenReport *report,
+                                            BOOL reportWasReadable,
+                                            BOOL targetIsAlive,
+                                            pid_t processIdentifier,
+                                            NSString *dylibPath) {
+    if (!reportWasReadable || report == NULL) {
+        // A target that is gone did not merely fail to report — it was killed
+        // while loading. That is what the code-signing monitor does when a
+        // page's hash does not match: the process dies as the page faults in,
+        // dlopen never returns, and nothing is ever written here. Reporting
+        // success for a process that no longer exists is the worst outcome
+        // available, since callers use this verdict to decide whether to fall
+        // back to another injection strategy.
+        if (targetIsAlive) {
+            return nil;
+        }
+        return MIMachInjectorErrorMake(MIMachInjectorErrorTargetTerminatedWhileLoading,
+                                       @"target process %d terminated while loading %@ "
+                                       @"(it was killed before dlopen could report; a code signature "
+                                       @"whose page hashes do not match does this)",
+                                       processIdentifier, dylibPath);
+    }
+
+    if (report->resultCode != MIMachInjectorDlopenResultCodeFailed) {
+        return nil;
+    }
+
+    // The shellcode writes into a fixed-size buffer and is not obliged to
+    // terminate it; copy before reading so the caller's report stays const.
+    char remoteMessage[sizeof(report->errorMessage)];
+    memcpy(remoteMessage, report->errorMessage, sizeof(remoteMessage));
+    remoteMessage[sizeof(remoteMessage) - 1] = '\0';
+
+    NSString *description = [NSString stringWithFormat:@"target process refused to load %@: %s",
+                             dylibPath, remoteMessage[0] ? remoteMessage : "dlopen returned NULL"];
+
+    NSMutableDictionary<NSErrorUserInfoKey, id> *userInfo =
+        [NSMutableDictionary dictionaryWithObject:description forKey:NSLocalizedDescriptionKey];
+
+    // dlopen can return NULL with nothing to say. Leave the key absent rather
+    // than present-and-empty, so `userInfo[key] != nil` means "there is a reason
+    // to read".
+    if (remoteMessage[0]) {
+        userInfo[MIMachInjectorRemoteErrorMessageKey] = @(remoteMessage);
+    }
+
+    return [NSError errorWithDomain:MIMachInjectorErrorDomain
+                               code:MIMachInjectorErrorTargetRefusedToLoadDylib
+                           userInfo:userInfo];
 }
 
 @implementation MIMachInjector
@@ -172,13 +212,13 @@ static NSError *MIMachInjectorErrorMake(NSString *description, ...) {
 
     // Validate input
     if (!pid) {
-        error = MIMachInjectorErrorMake(@"invalid pid");
+        error = MIMachInjectorErrorMake(MIMachInjectorErrorInvalidProcessIdentifier, @"invalid pid");
         goto cleanup;
     }
 
     // Get task port for target process
     if (task_for_pid(mach_task_self(), pid, &task) != KERN_SUCCESS) {
-        error = MIMachInjectorErrorMake(@"could not retrieve task port for pid: %d", pid);
+        error = MIMachInjectorErrorMake(MIMachInjectorErrorTaskPortUnavailable, @"could not retrieve task port for pid: %d", pid);
         goto cleanup;
     }
 
@@ -204,27 +244,27 @@ static NSError *MIMachInjectorErrorMake(NSString *description, ...) {
         sandbox_token = sandbox_extension_issue_file(APP_SANDBOX_READ, dylibPath.UTF8String, 0);
     }
     if (!sandbox_token) {
-        error = MIMachInjectorErrorMake(@"could not issue sandbox extension token");
+        error = MIMachInjectorErrorMake(MIMachInjectorErrorSandboxExtensionTokenUnavailable, @"could not issue sandbox extension token");
         goto cleanup;
     }
 #endif
 
     // Allocate stack in target process
     if (mach_vm_allocate(task, &stack, stack_size, VM_FLAGS_ANYWHERE) != KERN_SUCCESS) {
-        error = MIMachInjectorErrorMake(@"could not allocate stack segment");
+        error = MIMachInjectorErrorMake(MIMachInjectorErrorRemoteStackAllocationFailed, @"could not allocate stack segment");
         goto cleanup;
     }
 
     // Write dummy return address to stack
     uint64_t stack_contents = 0x00000000CAFEBABE;
     if (mach_vm_write(task, stack, (vm_address_t)&stack_contents, sizeof(uint64_t)) != KERN_SUCCESS) {
-        error = MIMachInjectorErrorMake(@"could not write to stack segment");
+        error = MIMachInjectorErrorMake(MIMachInjectorErrorRemoteStackWriteFailed, @"could not write to stack segment");
         goto cleanup;
     }
 
     // Set stack protection
     if (vm_protect(task, stack, stack_size, 1, VM_PROT_READ | VM_PROT_WRITE) != KERN_SUCCESS) {
-        error = MIMachInjectorErrorMake(@"could not set stack protection");
+        error = MIMachInjectorErrorMake(MIMachInjectorErrorRemoteStackProtectionFailed, @"could not set stack protection");
         goto cleanup;
     }
 
@@ -250,14 +290,14 @@ static NSError *MIMachInjectorErrorMake(NSString *description, ...) {
     code_size = X86_SHELLCODE_SIZE;
 
     if (mach_vm_allocate(task, &code, code_size, VM_FLAGS_ANYWHERE) != KERN_SUCCESS) {
-        error = MIMachInjectorErrorMake(@"could not allocate code segment");
+        error = MIMachInjectorErrorMake(MIMachInjectorErrorRemoteCodeAllocationFailed, @"could not allocate code segment");
         goto cleanup;
     }
 
     // Create local copy for patching
     local_shellcode = malloc(code_size);
     if (!local_shellcode) {
-        error = MIMachInjectorErrorMake(@"malloc failed");
+        error = MIMachInjectorErrorMake(MIMachInjectorErrorLocalShellcodeBufferAllocationFailed, @"malloc failed");
         goto cleanup;
     }
     memcpy(local_shellcode, __x86_shellcode_start, code_size);
@@ -277,20 +317,20 @@ static NSError *MIMachInjectorErrorMake(NSString *description, ...) {
     // Copy dylib path with bounds check
     size_t pathLen = strlen(dylibPath.UTF8String);
     if (pathLen >= X86_MAX_PATH_LENGTH) {
-        error = MIMachInjectorErrorMake(@"dylib path too long (max %d)", X86_MAX_PATH_LENGTH - 1);
+        error = MIMachInjectorErrorMake(MIMachInjectorErrorDylibPathTooLong, @"dylib path too long (max %d)", X86_MAX_PATH_LENGTH - 1);
         goto cleanup;
     }
     memcpy(local_shellcode + X86_PAYLOAD_PATH_OFFSET, dylibPath.UTF8String, pathLen + 1);
 
     // Write shellcode to target process
     if (mach_vm_write(task, code, (vm_address_t)local_shellcode, (mach_msg_type_number_t)code_size) != KERN_SUCCESS) {
-        error = MIMachInjectorErrorMake(@"could not write shellcode to target");
+        error = MIMachInjectorErrorMake(MIMachInjectorErrorShellcodeWriteFailed, @"could not write shellcode to target");
         goto cleanup;
     }
 
     // Set code segment as executable
     if (vm_protect(task, code, code_size, 0, VM_PROT_EXECUTE | VM_PROT_READ) != KERN_SUCCESS) {
-        error = MIMachInjectorErrorMake(@"could not set code protection");
+        error = MIMachInjectorErrorMake(MIMachInjectorErrorRemoteCodeProtectionFailed, @"could not set code protection");
         goto cleanup;
     }
 
@@ -300,7 +340,7 @@ static NSError *MIMachInjectorErrorMake(NSString *description, ...) {
 
     kern_return_t kr = thread_create_running(task, thread_flavor, (thread_state_t)&thread_state, thread_flavor_count, &thread);
     if (kr != KERN_SUCCESS) {
-        error = MIMachInjectorErrorMake(@"could not create remote thread: %s", mach_error_string(kr));
+        error = MIMachInjectorErrorMake(MIMachInjectorErrorRemoteThreadCreationFailed, @"could not create remote thread: %s", mach_error_string(kr));
         goto cleanup;
     }
 
@@ -318,14 +358,14 @@ static NSError *MIMachInjectorErrorMake(NSString *description, ...) {
     code_size = SHELLCODE_SIZE;
 
     if (mach_vm_allocate(task, &code, code_size, VM_FLAGS_ANYWHERE) != KERN_SUCCESS) {
-        error = MIMachInjectorErrorMake(@"could not allocate code segment");
+        error = MIMachInjectorErrorMake(MIMachInjectorErrorRemoteCodeAllocationFailed, @"could not allocate code segment");
         goto cleanup;
     }
 
     // Create local copy for patching
     local_shellcode = malloc(SHELLCODE_SIZE);
     if (!local_shellcode) {
-        error = MIMachInjectorErrorMake(@"malloc failed");
+        error = MIMachInjectorErrorMake(MIMachInjectorErrorLocalShellcodeBufferAllocationFailed, @"malloc failed");
         goto cleanup;
     }
     memcpy(local_shellcode, __shellcode_start, SHELLCODE_SIZE);
@@ -347,7 +387,7 @@ static NSError *MIMachInjectorErrorMake(NSString *description, ...) {
     // Copy dylib path with bounds check
     size_t pathLen = strlen(dylibPath.UTF8String);
     if (pathLen >= 0x500) {
-        error = MIMachInjectorErrorMake(@"dylib path too long");
+        error = MIMachInjectorErrorMake(MIMachInjectorErrorDylibPathTooLong, @"dylib path too long");
         goto cleanup;
     }
     memcpy(local_shellcode + PAYLOAD_PATH_OFFSET, dylibPath.UTF8String, pathLen + 1);
@@ -356,7 +396,7 @@ static NSError *MIMachInjectorErrorMake(NSString *description, ...) {
     if (sandbox_token) {
         size_t tokenLen = strlen(sandbox_token);
         if (tokenLen >= 0x500) {
-            error = MIMachInjectorErrorMake(@"sandbox token too long");
+            error = MIMachInjectorErrorMake(MIMachInjectorErrorSandboxExtensionTokenTooLong, @"sandbox token too long");
             goto cleanup;
         }
         memcpy(local_shellcode + SANDBOX_TOKEN_OFFSET, sandbox_token, tokenLen + 1);
@@ -364,13 +404,13 @@ static NSError *MIMachInjectorErrorMake(NSString *description, ...) {
 
     // Write shellcode to target process
     if (mach_vm_write(task, code, (vm_address_t)local_shellcode, (mach_msg_type_number_t)SHELLCODE_SIZE) != KERN_SUCCESS) {
-        error = MIMachInjectorErrorMake(@"could not write shellcode to target");
+        error = MIMachInjectorErrorMake(MIMachInjectorErrorShellcodeWriteFailed, @"could not write shellcode to target");
         goto cleanup;
     }
 
     // Set code segment as executable
     if (vm_protect(task, code, SHELLCODE_SIZE, 0, VM_PROT_EXECUTE | VM_PROT_READ) != KERN_SUCCESS) {
-        error = MIMachInjectorErrorMake(@"could not set code protection");
+        error = MIMachInjectorErrorMake(MIMachInjectorErrorRemoteCodeProtectionFailed, @"could not set code protection");
         goto cleanup;
     }
 
@@ -382,7 +422,7 @@ static NSError *MIMachInjectorErrorMake(NSString *description, ...) {
     }
 
     if (!_thread_convert_thread_state) {
-        error = MIMachInjectorErrorMake(@"could not load thread_convert_thread_state");
+        error = MIMachInjectorErrorMake(MIMachInjectorErrorThreadStateConverterUnavailable, @"could not load thread_convert_thread_state");
         goto cleanup;
     }
 
@@ -392,13 +432,13 @@ static NSError *MIMachInjectorErrorMake(NSString *description, ...) {
 
     kern_return_t kr = thread_create(task, &thread);
     if (kr != KERN_SUCCESS) {
-        error = MIMachInjectorErrorMake(@"could not create remote thread: %s", mach_error_string(kr));
+        error = MIMachInjectorErrorMake(MIMachInjectorErrorRemoteThreadCreationFailed, @"could not create remote thread: %s", mach_error_string(kr));
         goto cleanup;
     }
 
     kr = _thread_convert_thread_state(thread, 2, thread_flavor, (thread_state_t)&thread_state, thread_flavor_count, (thread_state_t)&machine_thread_state, &machine_thread_flavor_count);
     if (kr != KERN_SUCCESS) {
-        error = MIMachInjectorErrorMake(@"could not convert thread state: %s", mach_error_string(kr));
+        error = MIMachInjectorErrorMake(MIMachInjectorErrorThreadStateConversionFailed, @"could not convert thread state: %s", mach_error_string(kr));
         goto cleanup;
     }
 
@@ -412,20 +452,20 @@ static NSError *MIMachInjectorErrorMake(NSString *description, ...) {
 
         kr = thread_create_running(task, thread_flavor, (thread_state_t)&machine_thread_state, machine_thread_flavor_count, &thread);
         if (kr != KERN_SUCCESS) {
-            error = MIMachInjectorErrorMake(@"could not start remote thread: %s", mach_error_string(kr));
+            error = MIMachInjectorErrorMake(MIMachInjectorErrorRemoteThreadStartFailed, @"could not start remote thread: %s", mach_error_string(kr));
             goto cleanup;
         }
     } else {
         // Earlier versions: set state and resume
         kr = thread_set_state(thread, thread_flavor, (thread_state_t)&machine_thread_state, machine_thread_flavor_count);
         if (kr != KERN_SUCCESS) {
-            error = MIMachInjectorErrorMake(@"could not set thread state: %s", mach_error_string(kr));
+            error = MIMachInjectorErrorMake(MIMachInjectorErrorThreadStateAssignmentFailed, @"could not set thread state: %s", mach_error_string(kr));
             goto cleanup;
         }
 
         kr = thread_resume(thread);
         if (kr != KERN_SUCCESS) {
-            error = MIMachInjectorErrorMake(@"could not resume remote thread: %s", mach_error_string(kr));
+            error = MIMachInjectorErrorMake(MIMachInjectorErrorRemoteThreadResumeFailed, @"could not resume remote thread: %s", mach_error_string(kr));
             goto cleanup;
         }
     }
@@ -442,7 +482,7 @@ static NSError *MIMachInjectorErrorMake(NSString *description, ...) {
         kern_return_t kr = thread_get_state(thread, thread_flavor, (thread_state_t)&thread_state, &state_count);
 
         if (kr != KERN_SUCCESS) {
-            error = MIMachInjectorErrorMake(@"could not get thread state: %s", mach_error_string(kr));
+            error = MIMachInjectorErrorMake(MIMachInjectorErrorThreadStateReadFailed, @"could not get thread state: %s", mach_error_string(kr));
             goto cleanup;
         }
 
@@ -460,7 +500,7 @@ static NSError *MIMachInjectorErrorMake(NSString *description, ...) {
 
     if (!didCreatePthread) {
         // Timeout
-        error = MIMachInjectorErrorMake(@"injection timed out");
+        error = MIMachInjectorErrorMake(MIMachInjectorErrorTimedOut, @"injection timed out");
         goto cleanup;
     }
 
@@ -476,47 +516,26 @@ static NSError *MIMachInjectorErrorMake(NSString *description, ...) {
             mach_vm_size_t bytesRead = 0;
             kern_return_t kr = mach_vm_read_overwrite(task, report, sizeof(dlopenReport),
                                                      (mach_vm_address_t)&dlopenReport, &bytesRead);
+            BOOL reportWasReadable = (kr == KERN_SUCCESS && bytesRead == sizeof(dlopenReport));
 
-            if (kr != KERN_SUCCESS || bytesRead != sizeof(dlopenReport)) {
-                // The report is unreadable. Distinguish the two reasons, because
-                // one of them is a failed injection wearing a success's clothes.
-                //
-                // If the target is gone, it did not merely fail to report — it
-                // was killed while loading the dylib. That is what happens when
-                // the code-signing monitor finds a page whose hash does not
-                // match: the process dies as the page is faulted in, so dlopen
-                // never returns, nothing is ever written here, and the poll
-                // would otherwise run out and leave `result` at YES. Reporting
-                // success for a process that no longer exists is the worst
-                // outcome available — callers use this verdict to decide
-                // whether to fall back to another injection strategy.
-                //
-                // Any other read failure keeps the previous behaviour (treat a
-                // missing report as success), so an unmapped page or a slow
-                // constructor cannot regress into a spurious error.
-                if (!MIMachInjectorTargetIsAlive(task, pid)) {
-                    error = MIMachInjectorErrorMake(
-                        @"target process %d terminated while loading %@ "
-                        @"(it was killed before dlopen could report; a code signature "
-                        @"whose page hashes do not match does this)", pid, dylibPath);
-                    result = NO;
-                }
-                break;
+            // Keep polling only while the target has genuinely not answered yet.
+            // Every other state is terminal, and which of them it is belongs to
+            // the verdict function, not to this loop.
+            if (reportWasReadable && dlopenReport.resultCode == MIMachInjectorDlopenResultCodePending) {
+                usleep(MI_DLOPEN_REPORT_POLL_INTERVAL_MICROSECONDS);
+                continue;
             }
 
-            if (dlopenReport.resultCode == MIMachInjectorDlopenResultCodeLoaded) {
-                break;
-            }
+            // Liveness costs a round trip to the kernel, so only ask when the
+            // answer can change the verdict — an unreadable report.
+            BOOL targetIsAlive = reportWasReadable ? YES : MIMachInjectorTargetIsAlive(task, pid);
 
-            if (dlopenReport.resultCode == MIMachInjectorDlopenResultCodeFailed) {
-                dlopenReport.errorMessage[sizeof(dlopenReport.errorMessage) - 1] = '\0';
-                error = MIMachInjectorErrorMake(@"target process refused to load %@: %s", dylibPath,
-                                                dlopenReport.errorMessage[0] ? dlopenReport.errorMessage : "dlopen returned NULL");
+            error = MIMachInjectorErrorForDlopenReport(reportWasReadable ? &dlopenReport : NULL,
+                                                      reportWasReadable, targetIsAlive, pid, dylibPath);
+            if (error != nil) {
                 result = NO;
-                break;
             }
-
-            usleep(MI_DLOPEN_REPORT_POLL_INTERVAL_MICROSECONDS);
+            break;
         }
     }
 

@@ -218,6 +218,31 @@ SIP 开着则直接忽略，plist 写了也没用。
 实测的拒绝时序（macOS 26.5，用于判断超时预算是否够）：路径不存在 0.3 ms，
 沙盒拦截 0.7 ms，10 MB dylib 签名无效 15–19 ms。都是同步返回，远小于注入器 2 秒的轮询预算。
 
+### 从错误码判断该不该换路径
+
+上表按症状分类，但调用方拿到的是一个 `NSError`。三条路径都公开了枚举（提案 0002），
+所以"要不要退回另一条路"这个判断可以直接从 `code` 做出来 —— 不必去 `localizedDescription`
+里捞子串，那个字段跨 XPC 还不一定活得下来。
+
+**先看 domain 再看 code。** 两条 dlopen 路径共用同一套编号（`3` 都是拿不到 task port，
+`18` 都是目标拒绝），remap 自成一套（它的 `10` 才是 task port）。
+
+| 拿到的码 | 该做什么 |
+|---|---|
+| 同步 `3` / 异步 `3` / remap `10`（task port） | **换路径没用**，三条都要 `task_for_pid`。这是权限问题，去看注入器是不是 root / 有没有 `com.apple.system-task-ports.debug` |
+| 同步 `18` / 异步 `18`（目标拒绝），`dlerror` 提到 sandbox / `file-map-executable` | **换 remap**。目标的 seatbelt 不让映射可执行文件，这是 remap 存在的理由 |
+| 同步 `18` / 异步 `18`，`dlerror` 或内核日志提到 library validation | **换路径不是解法**，去设 `DisableLibraryValidation`（见 README 的 Requirements）。remap 只是绕过了这道检查 |
+| 同步 `29`（目标加载中死亡） | payload 的页哈希与签名不符。重新签名，别换路径 —— remap 也会撞上同样的页 |
+| 同步 `19`（超时） | 目标里 `pthread_create` 可能失败了（同步路径看不见，只能表现为超时），或目标被暂停。异步路径能把这一种单独报成 `17` |
+
+同步路径的 `dlerror` 原文在 `userInfo[MIMachInjectorRemoteErrorMessageKey]`（Swift 侧 `MachInjector.remoteErrorMessageKey`）里，
+异步路径在 `MIInjectionResult.remoteErrorMessage` 里 —— 上表里要读 `dlerror` 的那几行看这两处。
+
+**这里最容易搞错的一条**：对任何 dlopen 失败都无差别退回 remap 是有代价的。一次失败的尝试会在
+目标进程里永久留下一个空转的 mach thread 和几页 shellcode（本库刻意不回收，见
+[有意为之的每次注入泄漏](../../README.md#intentional-per-injection-leak)），而对 task port
+这类失败来说这次尝试注定失败。分类的价值就在这儿。
+
 ## 平台支持
 
 | | arm64e / arm64 | x86_64 |

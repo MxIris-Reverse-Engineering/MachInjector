@@ -371,7 +371,7 @@ NSErrorDomain const MIMachInjectorAsyncErrorDomain = @"MIMachInjectorAsyncErrorD
 
 #pragma mark - Error Creation
 
-static NSError *MakeError(NSInteger code, NSString *format, ...) {
+static NSError *MakeError(MIMachInjectorAsyncErrorCode code, NSString *format, ...) {
     va_list args;
     va_start(args, format);
     NSString *description = [[NSString alloc] initWithFormat:format arguments:args];
@@ -428,13 +428,13 @@ static void InvokeCompletion(MIInjectionContext *ctx) {
     if (!success) {
         switch (resultCode) {
             case 2:
-                error = MakeError(17, @"Failed to create pthread in target process");
+                error = MakeError(MIMachInjectorAsyncErrorRemotePthreadCreationFailed, @"Failed to create pthread in target process");
                 break;
             case 3:
-                error = MakeError(21, @"Failed to allocate mach port in target process");
+                error = MakeError(MIMachInjectorAsyncErrorRemoteMachPortAllocationFailed, @"Failed to allocate mach port in target process");
                 break;
             default:
-                error = MakeError(18, @"dlopen failed: %@", remoteError ?: @"unknown error");
+                error = MakeError(MIMachInjectorAsyncErrorTargetRefusedToLoadDylib, @"dlopen failed: %@", remoteError ?: @"unknown error");
                 break;
         }
     }
@@ -553,7 +553,7 @@ static void Phase1Completion(MIInjectionContext *ctx) {
         MIInjectionResult *result = [[MIInjectionResult alloc]
             initWithSuccess:NO
                      handle:0
-                      error:MakeError(1, @"Failed to allocate injection context")
+                      error:MakeError(MIMachInjectorAsyncErrorInjectionContextAllocationFailed, @"Failed to allocate injection context")
          remoteErrorMessage:nil];
         dispatch_async(dispatch_get_main_queue(), ^{
             if (completionHandler) completionHandler(result, result.error);
@@ -572,7 +572,7 @@ static void Phase1Completion(MIInjectionContext *ctx) {
         MIInjectionResult *result = [[MIInjectionResult alloc]
             initWithSuccess:NO
                      handle:0
-                      error:MakeError(2, @"Invalid PID: %d", pid)
+                      error:MakeError(MIMachInjectorAsyncErrorInvalidProcessIdentifier, @"Invalid PID: %d", pid)
          remoteErrorMessage:nil];
         free(ctx);
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -597,7 +597,7 @@ static void Phase1Completion(MIInjectionContext *ctx) {
         MIInjectionResult *result = [[MIInjectionResult alloc]
             initWithSuccess:NO
                      handle:0
-                      error:MakeError(3, @"Failed to get task port for pid %d: %s", pid, mach_error_string(kr))
+                      error:MakeError(MIMachInjectorAsyncErrorTaskPortUnavailable, @"Failed to get task port for pid %d: %s", pid, mach_error_string(kr))
          remoteErrorMessage:nil];
         free(ctx);
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -659,7 +659,7 @@ static void Phase1Completion(MIInjectionContext *ctx) {
         MIInjectionResult *result = [[MIInjectionResult alloc]
             initWithSuccess:NO
                      handle:0
-                      error:MakeError(4, @"Failed to allocate notepad: %s", mach_error_string(kr))
+                      error:MakeError(MIMachInjectorAsyncErrorNotepadAllocationFailed, @"Failed to allocate notepad: %s", mach_error_string(kr))
          remoteErrorMessage:nil];
         free(ctx);
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -678,7 +678,7 @@ static void Phase1Completion(MIInjectionContext *ctx) {
         MIInjectionResult *result = [[MIInjectionResult alloc]
             initWithSuccess:NO
                      handle:0
-                      error:MakeError(5, @"Failed to initialize notepad: %s", mach_error_string(kr))
+                      error:MakeError(MIMachInjectorAsyncErrorNotepadInitializationFailed, @"Failed to initialize notepad: %s", mach_error_string(kr))
          remoteErrorMessage:nil];
         free(ctx);
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -699,7 +699,7 @@ static void Phase1Completion(MIInjectionContext *ctx) {
         MIInjectionResult *result = [[MIInjectionResult alloc]
             initWithSuccess:NO
                      handle:0
-                      error:MakeError(6, @"Failed to allocate stack: %s", mach_error_string(kr))
+                      error:MakeError(MIMachInjectorAsyncErrorRemoteStackAllocationFailed, @"Failed to allocate stack: %s", mach_error_string(kr))
          remoteErrorMessage:nil];
         free(ctx);
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -717,7 +717,7 @@ static void Phase1Completion(MIInjectionContext *ctx) {
         MIInjectionResult *result = [[MIInjectionResult alloc]
             initWithSuccess:NO
                      handle:0
-                      error:MakeError(7, @"Failed to set stack protection: %s", mach_error_string(kr))
+                      error:MakeError(MIMachInjectorAsyncErrorRemoteStackProtectionFailed, @"Failed to set stack protection: %s", mach_error_string(kr))
          remoteErrorMessage:nil];
         free(ctx);
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -739,7 +739,7 @@ static void Phase1Completion(MIInjectionContext *ctx) {
         MIInjectionResult *result = [[MIInjectionResult alloc]
             initWithSuccess:NO
                      handle:0
-                      error:MakeError(8, @"Failed to allocate code segment: %s", mach_error_string(kr))
+                      error:MakeError(MIMachInjectorAsyncErrorRemoteCodeAllocationFailed, @"Failed to allocate code segment: %s", mach_error_string(kr))
          remoteErrorMessage:nil];
         free(ctx);
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -762,7 +762,7 @@ static void Phase1Completion(MIInjectionContext *ctx) {
         MIInjectionResult *result = [[MIInjectionResult alloc]
             initWithSuccess:NO
                      handle:0
-                      error:MakeError(9, @"Failed to allocate local shellcode buffer")
+                      error:MakeError(MIMachInjectorAsyncErrorLocalShellcodeBufferAllocationFailed, @"Failed to allocate local shellcode buffer")
          remoteErrorMessage:nil];
         free(ctx);
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -824,7 +824,7 @@ static void Phase1Completion(MIInjectionContext *ctx) {
         MIInjectionResult *result = [[MIInjectionResult alloc]
             initWithSuccess:NO
                      handle:0
-                      error:MakeError(10, @"Dylib path too long (%zu bytes, max 1279)", pathLen)
+                      error:MakeError(MIMachInjectorAsyncErrorDylibPathTooLong, @"Dylib path too long (%zu bytes, max 1279)", pathLen)
          remoteErrorMessage:nil];
         free(ctx);
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -859,7 +859,7 @@ static void Phase1Completion(MIInjectionContext *ctx) {
         MIInjectionResult *result = [[MIInjectionResult alloc]
             initWithSuccess:NO
                      handle:0
-                      error:MakeError(11, @"Failed to write shellcode: %s", mach_error_string(kr))
+                      error:MakeError(MIMachInjectorAsyncErrorShellcodeWriteFailed, @"Failed to write shellcode: %s", mach_error_string(kr))
          remoteErrorMessage:nil];
         free(ctx);
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -881,7 +881,7 @@ static void Phase1Completion(MIInjectionContext *ctx) {
         MIInjectionResult *result = [[MIInjectionResult alloc]
             initWithSuccess:NO
                      handle:0
-                      error:MakeError(12, @"Failed to set code protection: %s", mach_error_string(kr))
+                      error:MakeError(MIMachInjectorAsyncErrorRemoteCodeProtectionFailed, @"Failed to set code protection: %s", mach_error_string(kr))
          remoteErrorMessage:nil];
         free(ctx);
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -908,7 +908,7 @@ static void Phase1Completion(MIInjectionContext *ctx) {
         MIInjectionResult *result = [[MIInjectionResult alloc]
             initWithSuccess:NO
                      handle:0
-                      error:MakeError(13, @"Failed to load thread_convert_thread_state")
+                      error:MakeError(MIMachInjectorAsyncErrorThreadStateConverterUnavailable, @"Failed to load thread_convert_thread_state")
          remoteErrorMessage:nil];
         free(ctx);
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -946,7 +946,7 @@ static void Phase1Completion(MIInjectionContext *ctx) {
         MIInjectionResult *result = [[MIInjectionResult alloc]
             initWithSuccess:NO
                      handle:0
-                      error:MakeError(14, @"Failed to create thread: %s", mach_error_string(kr))
+                      error:MakeError(MIMachInjectorAsyncErrorRemoteThreadCreationFailed, @"Failed to create thread: %s", mach_error_string(kr))
          remoteErrorMessage:nil];
         free(ctx);
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -978,7 +978,7 @@ static void Phase1Completion(MIInjectionContext *ctx) {
         MIInjectionResult *result = [[MIInjectionResult alloc]
             initWithSuccess:NO
                      handle:0
-                      error:MakeError(15, @"Failed to convert thread state: %s", mach_error_string(kr))
+                      error:MakeError(MIMachInjectorAsyncErrorThreadStateConversionFailed, @"Failed to convert thread state: %s", mach_error_string(kr))
          remoteErrorMessage:nil];
         free(ctx);
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -1057,7 +1057,7 @@ static void Phase1Completion(MIInjectionContext *ctx) {
         MIInjectionResult *result = [[MIInjectionResult alloc]
             initWithSuccess:NO
                      handle:0
-                      error:MakeError(16, @"Failed to start thread: %s", mach_error_string(kr))
+                      error:MakeError(MIMachInjectorAsyncErrorRemoteThreadStartFailed, @"Failed to start thread: %s", mach_error_string(kr))
          remoteErrorMessage:nil];
         free(ctx);
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -1088,7 +1088,7 @@ static void Phase1Completion(MIInjectionContext *ctx) {
         MIInjectionResult *result = [[MIInjectionResult alloc]
             initWithSuccess:NO
                      handle:0
-                      error:MakeError(22, @"Failed to create dispatch source")
+                      error:MakeError(MIMachInjectorAsyncErrorDispatchSourceCreationFailed, @"Failed to create dispatch source")
          remoteErrorMessage:nil];
         free(ctx);
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -1211,7 +1211,7 @@ static void Phase1Completion(MIInjectionContext *ctx) {
                     NSString *errorDesc = debugInfo ?
                         [NSString stringWithFormat:@"MACH_SEND_DEAD not triggered. %@", debugInfo] :
                         @"Injection timed out";
-                    error = MakeError(19, @"%@", errorDesc);
+                    error = MakeError(MIMachInjectorAsyncErrorTimedOut, @"%@", errorDesc);
                 }
 
                 MIInjectionResult *result = [[MIInjectionResult alloc]
@@ -1274,7 +1274,7 @@ NSErrorDomain const MIMachInjectorAsyncErrorDomain = @"MIMachInjectorAsyncErrorD
 - (uint64_t)handle { return 0; }
 - (NSError *)error {
     return [NSError errorWithDomain:MIMachInjectorAsyncErrorDomain
-                               code:1
+                               code:MIMachInjectorAsyncErrorArchitectureUnsupported
                            userInfo:@{NSLocalizedDescriptionKey: @"MIMachInjectorAsync is only available on ARM64"}];
 }
 - (NSString *)remoteErrorMessage { return nil; }
@@ -1289,7 +1289,7 @@ NSErrorDomain const MIMachInjectorAsyncErrorDomain = @"MIMachInjectorAsyncErrorD
     completionHandler:(MIInjectionCompletionHandler)completionHandler {
 
     NSError *error = [NSError errorWithDomain:MIMachInjectorAsyncErrorDomain
-                                         code:1
+                                         code:MIMachInjectorAsyncErrorArchitectureUnsupported
                                      userInfo:@{NSLocalizedDescriptionKey: @"MIMachInjectorAsync is only available on ARM64. Use MIMachInjector for x86_64."}];
 
     MIInjectionResult *result = [[MIInjectionResult alloc] init];

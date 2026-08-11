@@ -185,7 +185,111 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// Error domain for MIMachInjectorAsync errors.
 /// See the header documentation for a complete list of error codes.
-FOUNDATION_EXPORT NSErrorDomain const MIMachInjectorAsyncErrorDomain NS_SWIFT_NAME(MachInjectorAsyncErrorDomain);
+FOUNDATION_EXPORT NSErrorDomain const MIMachInjectorAsyncErrorDomain
+    NS_SWIFT_NAME(MachInjectorAsync.errorDomain);
+
+/// Why an asynchronous injection failed.
+///
+/// **Check the domain before the code.** These values are the ones the header's
+/// error-code table has always published — none of them changed when the
+/// enumeration was introduced. `MIMachInjectorErrorCode` assigns each value the
+/// same meaning, so a caller that uses both dlopen paths can share one `switch`.
+/// `MIMachInjectorRemapErrorCode` does not: its `10` is a missing task port,
+/// which is `3` here.
+///
+/// The values are not contiguous. `20` has never been used, and the synchronous
+/// path holds `23`-`29` for failures this path cannot produce. New failure
+/// points are appended after the highest value in either path; existing values
+/// never move.
+///
+/// In Swift: `MachInjectorAsync.Error`. The dotted `NS_SWIFT_NAME` is required
+/// rather than cosmetic — see the note on `MIMachInjectorErrorCode`.
+typedef NS_ERROR_ENUM(MIMachInjectorAsyncErrorDomain, MIMachInjectorAsyncErrorCode) {
+    /// The injector could not allocate its own bookkeeping for the injection.
+    MIMachInjectorAsyncErrorInjectionContextAllocationFailed = 1,
+
+    /// `pid` was not a usable process identifier.
+    MIMachInjectorAsyncErrorInvalidProcessIdentifier = 2,
+
+    /// `task_for_pid` was refused, or the target is already gone.
+    ///
+    /// **Falling back to `MIMachInjectorRemap` does not help** — it needs the
+    /// same task port.
+    MIMachInjectorAsyncErrorTaskPortUnavailable = 3,
+
+    /// The notepad — the shared page the target reports its verdict through —
+    /// could not be allocated in the target.
+    MIMachInjectorAsyncErrorNotepadAllocationFailed = 4,
+
+    /// The notepad was allocated but could not be initialised.
+    MIMachInjectorAsyncErrorNotepadInitializationFailed = 5,
+
+    /// `mach_vm_allocate` for the remote thread's stack failed.
+    MIMachInjectorAsyncErrorRemoteStackAllocationFailed = 6,
+
+    /// `mach_vm_protect` on the remote stack failed.
+    MIMachInjectorAsyncErrorRemoteStackProtectionFailed = 7,
+
+    /// `mach_vm_allocate` for the shellcode segment failed.
+    MIMachInjectorAsyncErrorRemoteCodeAllocationFailed = 8,
+
+    /// The injector could not allocate its own staging buffer for the shellcode.
+    MIMachInjectorAsyncErrorLocalShellcodeBufferAllocationFailed = 9,
+
+    /// The dylib path does not fit the fixed-size slot in the shellcode.
+    MIMachInjectorAsyncErrorDylibPathTooLong = 10,
+
+    /// `mach_vm_write` of the shellcode into the target failed.
+    MIMachInjectorAsyncErrorShellcodeWriteFailed = 11,
+
+    /// `mach_vm_protect` could not make the shellcode segment executable.
+    MIMachInjectorAsyncErrorRemoteCodeProtectionFailed = 12,
+
+    /// `thread_convert_thread_state` could not be resolved (arm64e).
+    MIMachInjectorAsyncErrorThreadStateConverterUnavailable = 13,
+
+    /// `thread_create` failed.
+    MIMachInjectorAsyncErrorRemoteThreadCreationFailed = 14,
+
+    /// `thread_convert_thread_state` failed to sign the state (arm64e ptrauth).
+    MIMachInjectorAsyncErrorThreadStateConversionFailed = 15,
+
+    /// The remote thread could not be started.
+    MIMachInjectorAsyncErrorRemoteThreadStartFailed = 16,
+
+    /// `pthread_create` failed inside the target.
+    ///
+    /// This path can see it because the notepad carries a dedicated result code
+    /// for it. The synchronous path cannot — there it surfaces as a timeout.
+    MIMachInjectorAsyncErrorRemotePthreadCreationFailed = 17,
+
+    /// The target's `dlopen` refused the dylib.
+    ///
+    /// The injection mechanism worked; the target declined the image.
+    /// `MIInjectionResult.remoteErrorMessage` carries `dlerror`'s own words. If
+    /// it mentions a code signature or library validation, the fix is the
+    /// machine-wide AMFI switch documented in the README's requirements — not a
+    /// different injection path. If the target's seatbelt profile denied
+    /// `file-map-executable`, no switch helps and `MIMachInjectorRemap` is the
+    /// way, since it never calls `dlopen` in the target.
+    MIMachInjectorAsyncErrorTargetRefusedToLoadDylib = 18,
+
+    /// The target never reported a verdict within the timeout.
+    MIMachInjectorAsyncErrorTimedOut = 19,
+
+    /// A mach port could not be allocated inside the target.
+    MIMachInjectorAsyncErrorRemoteMachPortAllocationFailed = 21,
+
+    /// The injector could not create the dispatch source that waits for
+    /// `MACH_SEND_DEAD`.
+    MIMachInjectorAsyncErrorDispatchSourceCreationFailed = 22,
+
+    /// This class is arm64-only and the process running it is not arm64.
+    ///
+    /// Use `MIMachInjector`, which supports x86_64. Appended at 30 because the
+    /// synchronous path holds 23-29.
+    MIMachInjectorAsyncErrorArchitectureUnsupported = 30,
+} NS_SWIFT_NAME(MachInjectorAsync.Error);
 
 /// Represents the result of an asynchronous dylib injection operation.
 ///

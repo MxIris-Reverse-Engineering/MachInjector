@@ -20,6 +20,6 @@ SPM library product，使用方以源码依赖并重新编译，未开启 librar
 | # | 标题 | 状态 |
 |---|------|------|
 | [0001](0001-restore-payload-writable-segments-before-fixups.md) | Remap 前把 payload 可写段恢复为文件原始内容 | Implemented |
-| [0002](0002-classify-and-publish-injection-error-codes.md) | 把注入失败分类成可判定的错误码，并公开三个 domain 的枚举 | Draft |
+| [0002](0002-classify-and-publish-injection-error-codes.md) | 把注入失败分类成可判定的错误码，并公开三个 domain 的枚举 | Implemented |
 
 `Design/` 下的架构文档是提案制确立前的产物，见[上级索引](../README.md)，保持原样不迁移。

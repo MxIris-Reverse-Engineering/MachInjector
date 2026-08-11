@@ -56,4 +56,4 @@ macOS 代码注入库。三条互不相同的注入路径：两条在目标进�
 | # | 标题 | 状态 |
 |---|---|---|
 | [0001](Evolutions/0001-restore-payload-writable-segments-before-fixups.md) | Remap 前把 payload 可写段恢复为文件原始内容 | Implemented |
-| [0002](Evolutions/0002-classify-and-publish-injection-error-codes.md) | 把注入失败分类成可判定的错误码，并公开三个 domain 的枚举 | Draft |
+| [0002](Evolutions/0002-classify-and-publish-injection-error-codes.md) | 把注入失败分类成可判定的错误码，并公开三个 domain 的枚举 | Implemented |
