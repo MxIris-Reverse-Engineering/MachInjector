@@ -17,18 +17,24 @@ NS_SWIFT_NAME(MachInjector)
 ///
 /// A refusal is the normal outcome for a target whose seatbelt profile denies
 /// `file-map-executable`, and for one that is actually having AMFI library
-/// validation enforced against it. Neither is fixable from this side; use
-/// `MIMachInjectorRemap` for those targets.
+/// validation enforced against it. The seatbelt case is not fixable from any
+/// side; use `MIMachInjectorRemap` for it. Library validation is fixable, but
+/// only by the machine's owner and only machine-wide — see the paragraph below
+/// for the global switch that governs it.
 ///
 /// Do not predict a refusal from `csops(CS_OPS_STATUS)` reporting
 /// `CS_REQUIRE_LV`. The flag says the target requests library validation, not
-/// that the system is enforcing it: with SIP disabled, a process signed
-/// `library,runtime` and reporting `CS_REQUIRE_LV` loads unsigned, ad-hoc, and
-/// foreign-Team-ID dylibs without complaint (measured on macOS 26.5). And SIP
-/// is disabled on essentially every machine where this class can be used at
-/// all, since `task_for_pid` against a hardened target requires it — so the
-/// prediction tends to be wrong exactly where it would be consulted. Attempt
-/// the injection and branch on the result instead.
+/// that the system is enforcing it, and enforcement is a property of the whole
+/// machine rather than of the target: `amfid` consults
+/// `/Library/Preferences/com.apple.security.libraryvalidation.plist` and lets
+/// every load through when its `DisableLibraryValidation` key is true. It only
+/// reads that file at all when SIP is disabled (or on an Apple-internal
+/// machine); with SIP on, the key is ignored and validation is enforced
+/// regardless. So disabling SIP is necessary but not sufficient — it unlocks
+/// the switch, it is not the switch — and a `CS_REQUIRE_LV` target on a machine
+/// where the key is set loads unsigned, ad-hoc, and foreign-Team-ID dylibs
+/// without complaint (measured on macOS 26.5). Attempt the injection and branch
+/// on the result instead.
 ///
 /// The dylib's own initialization is not waited for: `YES` means the image was
 /// mapped, not that its constructors finished.

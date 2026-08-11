@@ -12,14 +12,24 @@
  *     whitelist — sharingd, rapportd, and their kin. No sandbox extension
  *     helps: the `APP_SANDBOX_READ` extension only unlocks `file-read*`, not
  *     the executable-map predicate that the deny catches.
- *   - **AMFI library validation.** A process whose code-signing status carries
- *     `CS_REQUIRE_LV` (`csops(pid, CS_OPS_STATUS, ...)`) only accepts dylibs
- *     signed by Apple or by its own Team ID. Every Apple application is signed
- *     this way — Music, Finder, Safari, Mail, Xcode — so a developer-signed
- *     payload is rejected with "mapping process and mapped file (non-platform)
- *     have different Team IDs". Note this is orthogonal to the sandbox: those
- *     apps are otherwise unsandboxed, so a `sandbox_check` probe reports
- *     everything as allowed.
+ *   - **AMFI library validation.** While it is being enforced, a process whose
+ *     code-signing status carries `CS_REQUIRE_LV`
+ *     (`csops(pid, CS_OPS_STATUS, ...)`) only accepts dylibs signed by Apple or
+ *     by its own Team ID. Every Apple application is signed this way — Music,
+ *     Finder, Safari, Mail, Xcode — so a developer-signed payload is rejected
+ *     with "mapping process and mapped file (non-platform) have different Team
+ *     IDs". Note this is orthogonal to the sandbox: those apps are otherwise
+ *     unsandboxed, so a `sandbox_check` probe reports everything as allowed.
+ *
+ *     Whether it is being enforced is a property of the machine, not of the
+ *     target: `amfid` lets every load through when
+ *     `/Library/Preferences/com.apple.security.libraryvalidation.plist` has
+ *     `DisableLibraryValidation` set, and it only reads that file when SIP is
+ *     disabled. `CS_REQUIRE_LV` therefore does not predict a refusal — see the
+ *     docblock on `+[MIMachInjector injectToPID:dylibPath:error:]`, which spells
+ *     the interaction out. This class is the answer when the switch is *not*
+ *     set, either because the machine's owner will not set it or because you
+ *     cannot ask them to.
  *
  * MIMachInjectorRemap avoids `dlopen` in the target entirely. It maps the
  * payload dylib into the injector, then uses `mach_vm_remap` with
@@ -39,8 +49,10 @@
  *
  * Use MIMachInjectorRemap when:
  *   - The target is a strict seatbelt daemon that will refuse dlopen.
- *   - The target enforces library validation (`CS_REQUIRE_LV`) and the payload
- *     is not signed by the target's Team ID — i.e. any Apple application.
+ *   - Library validation is being enforced on this machine, the target carries
+ *     `CS_REQUIRE_LV` (i.e. any Apple application), and the payload is not
+ *     signed by the target's Team ID. Note that both halves are required: the
+ *     flag alone decides nothing while the machine-wide switch above is set.
  *   - You control the payload dylib's entry point (needs an exported symbol,
  *     see below).
  *   - You are running on Apple Silicon (arm64 / arm64e).

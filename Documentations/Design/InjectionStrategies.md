@@ -133,8 +133,11 @@ API 上因此多了超时参数和 completion handler。
 
 前两条都依赖目标能成功执行 `dlopen`。这个前提对一类目标不成立：
 **严格沙盒的系统守护进程**，其沙盒配置里有 `(deny file-map-executable)`，任何位于用户目录、
-`/Library/Frameworks` 之下的 payload，`dlopen` 会直接被 dyld 的沙盒检查拦下。启用了
-**库验证（library validation）** 的目标同理。
+`/Library/Frameworks` 之下的 payload，`dlopen` 会直接被 dyld 的沙盒检查拦下。
+
+**库验证（library validation）** 被强制的目标也会拒绝 `dlopen`，但它和 seatbelt 那条性质不同：
+seatbelt 那条谁都改不了，只能绕开；库验证是**整台机器的一个开关**，机器主人设上就没有了
+（详见下面「不要预测，直接试」）。remap 路径对两者都有效，但只有 seatbelt 那条是**非它不可**。
 
 remap 路径的思路是：**既然目标不让 dyld 加载，那就不用 dyld**。
 
@@ -178,13 +181,27 @@ remap 路径对 payload 有额外要求：它必须导出一个 `void *entry(voi
 ```
 
 **不要预测，直接试。** 一个很自然的想法是用 `csops(CS_OPS_STATUS)` 读 `CS_REQUIRE_LV` 标志来
-预判目标会不会拒绝 `dlopen`。这个预测不可靠：该标志只说明目标**请求**库验证，不代表系统在
-**强制**它。实测（macOS 26.5）在 SIP 关闭时，一个签了 `library,runtime`、`csops` 确实报
-`CS_REQUIRE_LV` 的进程，照样能加载未签名、ad-hoc 签名、以及不同 Team ID 签名的 dylib。
+预判目标会不会拒绝 `dlopen`。这个预测不可靠，原因是**标志和强制不在同一个维度上**：
+`CS_REQUIRE_LV` 是**进程**的属性（这个进程请求库验证），而是否真的强制是**整台机器**的状态。
+从前者推不出后者。
 
-更麻烦的是：SIP 关闭恰恰是**能用上注入的前提**（对硬化目标 `task_for_pid` 需要它），
-所以这个预测倾向于**在唯一会去查它的场景里出错**。`MIMachInjector` 现在会如实报告
-`dlopen` 的拒绝并带回 `dlerror()` 原文，据此退回 remap 即可。
+真正的开关是一份 plist：`amfid` 读
+`/Library/Preferences/com.apple.security.libraryvalidation.plist`，发现
+`DisableLibraryValidation` 为真就全局放行（日志里会打
+`library validation is globally disabled`）。而它**只在 SIP 关闭时才会去读这份文件** ——
+SIP 开着则直接忽略，plist 写了也没用。
+
+所以「关 SIP」和「库验证不强制」是**必要不充分**关系：关 SIP 只是解锁了那个开关，它本身不是
+开关。这一点值得单独记住，因为它有两个方向的推论，两个都会咬人：
+
+- **关了 SIP 不等于就能注入 Apple 应用。** 平台二进制（Finder、Dock、各种系统服务）加载
+  非平台签名的 dylib，在 plist 没设的机器上照样被拒，内核日志写得很直白：
+  `mapping process is a platform binary, but mapped file is not`。
+- **写了 plist 但 SIP 开着也没用。** amfid 根本不读。
+
+`MIMachInjector` 会如实报告 `dlopen` 的拒绝并带回 `dlerror()` 原文，据此判断即可：
+若拒绝理由指向库验证，那是机器配置问题（让机器主人设上面那个开关），不必退回 remap；
+若指向 seatbelt 的 `file-map-executable`，才是该退回 remap 的场景。
 
 ## 各自的失败模式
 
@@ -193,6 +210,7 @@ remap 路径对 payload 有额外要求：它必须导出一个 `void *entry(voi
 | `task_for_pid` 失败 | 三条通用：不是 root，或 SIP 开着 |
 | `dlopen` 返回 NULL，`dlerror` 说 `file system sandbox blocked mmap()` | 目标沙盒禁止映射可执行文件 → 改走 remap |
 | `dlopen` 返回 NULL，`dlerror` 说 `code signature invalid` | payload 签名问题（注意 `cp` 一个 framework 会破坏签名） |
+| `dlopen` 返回 NULL，内核日志有 `library_validation_failure`、理由是 `mapping process is a platform binary, but mapped file is not` | 这台机器仍在强制库验证 → 设 `DisableLibraryValidation`（需 SIP 已关）。**不是**该退回 remap 的场景，remap 只是绕过它，开关才是解法 |
 | **目标进程直接消失**，什么都没报 | 页哈希与签名不符，代码签名监控直接杀进程；`MIMachInjector` 会把它识别为失败 |
 | 注入报成功但 payload 没反应 | 检查 payload 的构造函数是否真的跑了；remap 路径不会自动跑构造函数 |
 | payload 崩在一个"地址合法、只有 PAC 位错"的指针上 | remap 路径特有，**先读[注入器运行时脏状态](../Internal/InjectorRuntimeDirtyState.md)** |

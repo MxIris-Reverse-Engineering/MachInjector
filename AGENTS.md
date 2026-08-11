@@ -110,6 +110,14 @@ Things that have actually gone wrong here, in rough order of how much time they 
   with `KERN_PROTECTION_FAILURE`. The three handles are leaked on purpose.
 - **`csops(CS_OPS_STATUS)` reporting `CS_REQUIRE_LV` does not predict a `dlopen` refusal.** Attempt
   the injection and branch on the result. Rationale is in the `MIMachInjector.h` docblock.
+- **Disabling SIP does not disable library validation.** It only lets `amfid` read
+  `/Library/Preferences/com.apple.security.libraryvalidation.plist`; the actual switch is that
+  file's `DisableLibraryValidation` key. Necessary, not sufficient — so a fresh SIP-disabled
+  machine still rejects a non-platform payload going into a platform binary
+  (`mapping process is a platform binary, but mapped file is not`), and setting the key while SIP
+  is on does nothing at all. This one gets rediscovered roughly every time someone sets up a new
+  machine; see
+  [`Documentations/Design/InjectionStrategies.md`](Documentations/Design/InjectionStrategies.md).
 - **The two result-code encodings are not the same.** `MIMachInjectorDlopenResultCode` (sync) and
   the async notepad's `result_code` assign opposite meanings to `1`. Both declarations carry a
   cross-referencing warning; read it before touching either.
