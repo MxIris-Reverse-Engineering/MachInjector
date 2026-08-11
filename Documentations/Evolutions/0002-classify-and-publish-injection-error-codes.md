@@ -659,7 +659,30 @@ Apple 自己是在 `.apinotes` 里写这件事的（`BackgroundTasks.apinotes`�
 `MachInjectorAsyncErrorDomain` / `MachInjectorRemapErrorDomain`（平铺），现改为嵌套形式，写了旧名的
 Swift 代码会编译不过。与本提案已有的 `code` 语义变化同属 0.5.0 的破坏性变更，一并列入 release notes。
 
-### 6. 配套专题文章：不写
+### 6. 发 `0.5.0` 挡不住下游自动升级 —— 版本号决策需要重新确认
+
+提案「API 演进与废弃策略」写的是「本库尚在 `0.x`，按惯例发 **minor**（`0.5.0`）并在 release notes
+顶部显式列出」。落地后从下游 `swift-helper-service` 那边得到一条信息，推翻了这个决定的隐含前提。
+
+它的 `Package.swift` 用的是 `from: "0.4.3"`，而 **SwiftPM 的 `from:` 语义是 up-to-next-major**，
+即 `>= 0.4.3, < 1.0.0`。SwiftPM **不像 Cargo 那样把 `0.x` 的 minor 当作破坏性边界**，所以
+`0.5.0` 一旦发布，下游一次 `swift package update` 就会静默升上去。
+
+也就是说「发 minor 给下游一个信号」这件事在 SwiftPM 下不成立 —— minor 不是信号，是自动接受。
+
+对已核实的那个下游无害（它不读 `NSError.code`，也不引用那三个 domain 常量）。但本库的 GitHub
+仓库是公开的，外部使用者只要写了 `from:` 且引用过 `MachInjectorAsyncErrorDomain` /
+`MachInjectorRemapErrorDomain` 的平铺 Swift 名，就会在毫无察觉的情况下编译失败。
+
+**这一项未决**，需要在发 tag 前确认走哪条：
+
+| 方案 | 效果 |
+|---|---|
+| 发 `0.5.0` | 按提案原样。下游 `from:` 自动升级，破坏性变更靠 release notes 告知，不靠版本号拦截 |
+| 发 `1.0.0` | 唯一能让 `from: "0.4.3"` 的下游**不**自动升级的办法。代价是本库就此进入 1.x，之后每个破坏性变更都要 major |
+| 保留平铺 Swift 名 | 给两个 domain 加回旧名的兼容别名，把破坏性缩小到只剩 `code` 语义。ObjC 侧无影响，但 Swift 侧会同时存在新旧两个名字 |
+
+### 7. 配套专题文章：不写
 
 按判据评估（「实现里有下次维护会踩、但代码本身看不出来的决策」）：编号对齐的理由已经写在
 三个头文件的枚举声明处、`AGENTS.md` 的 hazards、以及本提案里，专题文章只会是第四份复述。
@@ -672,3 +695,5 @@ Swift 代码会编译不过。与本提案已有的 `code` 语义变化同属 0.
 | 2026-08-11 | Created as Draft | 起因是 `FinderSidebarIconFix` 向 Finder 注入只拿到 `MIMachInjectorErrorDomain error 1`，根因（AMFI 库校验拒绝 payload）在传递中丢光。横向排查发现三条路径都没有公开错误码枚举，同步路径最严重（28 个失败点共用 `code:1`）。核心设计决策是**同步路径复用异步路径的编号语义而非自成一套**，理由是仓库里已有 `MIMachInjectorDlopenResultCode` 与 notepad `result_code` 含义相反这个被写进 hazards 的坑，不能在公开 API 上重演。下游三个仓库已核实无一读取 `NSError.code`，故重新编号的实际破坏面为零。AMFI 判定链的三个可观测推论已在本机核实（`amfid` 字符串、plist 内容、SIP 状态），`csr_check` 常量值未复核。 |
 | 2026-08-11 | 先行修正「关 SIP 就不强制库校验」这个错误理由 | 用户确认该机制已验证过（amfid 只在 SIP 关闭时才读那份 plist，真正的开关是 `DisableLibraryValidation`），批准在提案落地前单独改注释。改了四个文件，明细见「前期调研」的对应一节。**这一项不再属于本提案的落地范围**，提案保留它只是为了记录理由为什么是错的。 |
 | 2026-08-11 | Accepted → Implemented | 用户批准后一次落地。三条路径的枚举全部公开，同步路径 26 个失败点逐一分类（另两个移入判定函数），异步 21 处裸字面量替换为具名常量且取值一个未变，remap 枚举从 `.m` 移到公开头文件。新增 `MIMachInjectorRemoteErrorMessageKey`，以及可测的 `MIMachInjectorErrorForDlopenReport()`。测试从 6 个增加到 17 个：复现测试（两个失败点必须给出不同的码）在实现前确认为**失败**（实测两者都是 `1`），实现后通过；另外把异步 21 个、remap 16 个已发布取值逐一钉住，防止将来有人「顺手」重新编号。落地过程中发现并修正了提案未覆盖的三处 stub 错误码，明细见「与提案的差异」。 |
+| 2026-08-11 | 下游修好了 XPC 传输层，本提案的定位随之改变 | `swift-helper-service` 在同一天修复了错误跨 XPC 只剩 domain+code 的问题（病根是 SwiftyXPC 的 `BoxedError` 只搬 domain/code，`NSError` 非 `Codable` 导致 `userInfo` 在编码阶段就丢），现在 `dlerror` 原文能原样到达 App。**本提案「动机」一节描述的现象（`MIMachInjectorErrorDomain error 1`，信息量为零）因此已不复存在** —— 动机段落保持原貌，它记录的是当时的真实情况。但本提案的价值定位要改写：不再是「让人能读到原因」的救火，而是「让程序能分支」。其中最实在的一条是 `taskPortUnavailable` 不该回退 remap —— 那是真实的资源代价（目标进程里永久残留空转 mach thread 与几页 shellcode），再可读的错误文字也解决不了。 |
+| 2026-08-11 | 版本号决策重新打开 | 发 `0.5.0` 无法阻止 `from:` 型下游自动升级，详见「与提案的差异」第 6 条。发 tag 前需确认。 |

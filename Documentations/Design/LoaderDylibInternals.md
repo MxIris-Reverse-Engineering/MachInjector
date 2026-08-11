@@ -194,6 +194,28 @@ unsigned int MIMachInjectorRemapLoaderDylib_len = 851968;
 随机生成，code signature 的 CDHash 跟着变。代码字节本身不变。所以 diff 里只看到这几处变化时，说明
 loader 逻辑没动，不必细究。
 
+**loader dylib 是自包含的，这一点可以验证**：把 `loader_arm64_remap_dylib.h` 里的字节还原成文件后
+`nm -u` 输出为空（`otool -L` 只有 libSystem）。`-ffreestanding -fno-builtin -fno-common` 这套编译
+约束就是为了这个结果。
+
+这个性质是「loader 源码放在 SPM target 之外不影响运行时」的依据 —— injector 侧
+`dlsym(loaderHandle, ...)` 用的是这份 dylib 自己的 handle，而它不向宿主进程索取任何符号，所以
+`libMachInjector` 里有没有一份同名符号与 remap 的运行时行为无关。再加一层保障：`MIMachInjectorRemap.m`
+从不静态引用这些符号，一旦有人写了静态引用，**链接期就会失败**，不会留到运行时。
+
+需要重新确认时：
+
+```bash
+python3 -c "
+import re, pathlib
+source = pathlib.Path('Sources/MachInjector/loader_arm64_remap_dylib.h').read_text()
+body = source[source.index('{') + 1 : source.rindex('}')]
+pathlib.Path('/tmp/embedded_loader.dylib').write_bytes(
+    bytes(int(t, 16) for t in re.findall(r'0x([0-9a-fA-F]{2})', body)))
+"
+nm -u /tmp/embedded_loader.dylib   # 应当无输出
+```
+
 **手工跑触发点**：改 `loader_arm64_remap.s` / `loader_arm64_remap_fixup.c` / `loader_arm64_remap_handoff.c` 任一之后。改 header 或 `.m` 不需要。
 
 **注意**：`Xcode` 不会自动追踪 `loader_arm64_remap_dylib.h` 的变化。改了这个 `.h`，需要 `touch MIMachInjectorRemap.m` 让 Xcode 认为它 dirty，否则不会重编嵌入的字节。这曾经踩过坑（sharingd 一直崩，就是 `.h` 更新了但 `.m` 没重编）。
