@@ -51,8 +51,8 @@
 // access to it.
 .set REPORT_RESULT_CODE,        0x00    // int32_t: 0=pending, 1=loaded, 2=dlopen failed
 .set REPORT_HANDLE,             0x08    // uint64_t: dlopen return value
-.set REPORT_ERROR_MESSAGE,      0x10    // char[256]: dlerror() string
-.set REPORT_ERROR_MESSAGE_SIZE, 0x100   // Maximum error message length (256 bytes)
+.set REPORT_ERROR_MESSAGE,      0x10    // char[2048]: dlerror() string
+.set REPORT_ERROR_MESSAGE_SIZE, 0x800   // Maximum error message length (2048 bytes)
 
 // Shellcode entry point
 // Called from remote thread created by thread_create_running

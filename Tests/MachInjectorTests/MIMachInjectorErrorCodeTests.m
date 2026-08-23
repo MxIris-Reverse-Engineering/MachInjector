@@ -132,6 +132,35 @@ static pid_t FindProcessIdentifierThatDoesNotExist(void) {
     XCTAssertTrue([error.localizedDescription containsString:@"code signature invalid"]);
 }
 
+/// A dyld refusal names every path it probed, and one simulator path alone runs
+/// past 200 characters. The report block used to carry 256 bytes, which cut the
+/// message off inside the first candidate and hid the only thing it is read for.
+- (void)testLongDyldRefusalSurvivesWithoutTruncation {
+    MIMachInjectorDlopenReport report = {0};
+    report.resultCode = MIMachInjectorDlopenResultCodeFailed;
+
+    // Observed verbatim from an iOS Simulator process refusing the macOS slice.
+    const char *dlopenMessage =
+        "dlopen(/Library/Frameworks/RuntimeViewerServer.framework/RuntimeViewerServer, 0x0001): "
+        "tried: '/Library/Developer/CoreSimulator/Volumes/iOS_22F77/Library/Developer/CoreSimulator/"
+        "Profiles/Runtimes/iOS 18.5.simruntime/Contents/Resources/RuntimeRoot/Library/Frameworks/"
+        "RuntimeViewerServer.framework/RuntimeViewerServer' (no such file), "
+        "'/Library/Frameworks/RuntimeViewerServer.framework/RuntimeViewerServer' (no such file)";
+    XCTAssertGreaterThan(strlen(dlopenMessage), 256u,
+                         @"the message must exceed the old buffer or this test proves nothing");
+
+    strlcpy(report.errorMessage, dlopenMessage, sizeof(report.errorMessage));
+
+    NSError *error = MIMachInjectorErrorForDlopenReport(&report, YES, YES, 4242,
+                                                       @"/Library/Frameworks/RuntimeViewerServer.framework/RuntimeViewerServer");
+
+    XCTAssertEqualObjects(error.userInfo[MIMachInjectorRemoteErrorMessageKey], @(dlopenMessage));
+
+    // The tail is what truncation eats first, and the last candidate is the one
+    // that says whether the host path was reached at all.
+    XCTAssertTrue([error.userInfo[MIMachInjectorRemoteErrorMessageKey] hasSuffix:@"(no such file)"]);
+}
+
 /// dlopen can return NULL with nothing to say. The code must still classify.
 - (void)testReportOfFailureWithNoMessageStillClassifies {
     MIMachInjectorDlopenReport report = {0};

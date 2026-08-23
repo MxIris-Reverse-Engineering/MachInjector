@@ -36,11 +36,25 @@ NS_ASSUME_NONNULL_BEGIN
 // and one that never reports are indistinguishable without this block, which is
 // how a refused injection used to be reported as a success: the mach thread had
 // signalled DONE while nothing whatsoever was loaded.
+//
+// errorMessage is 2048 bytes because that is what dyld's refusals actually
+// need. A "tried:" list names every path dyld probed, and a single simulator
+// path runs past 200 characters on its own:
+//
+//   dlopen(/Library/Frameworks/RuntimeViewerServer.framework/RuntimeViewerServer, 0x0001):
+//   tried: '/Library/Developer/CoreSimulator/Volumes/iOS_22F77/Library/Developer/
+//   CoreSimulator/Profiles/Runtimes/iOS 18.5.simruntime/Contents/Resources/RuntimeRoot/...'
+//
+// At 256 bytes that truncates inside the first candidate, which hides the one
+// thing the message is read for — which paths were tried and why each was
+// rejected. The block is its own mach_vm_allocate in the target, so it already
+// costs a whole page (16 KB on arm64); growing the field within that page is
+// free.
 typedef struct {
     int32_t resultCode;
     int32_t reserved;
     uint64_t handle;
-    char errorMessage[256];
+    char errorMessage[2048];
 } MIMachInjectorDlopenReport;
 
 // WARNING — this and MINotepadResultCode in MIMachInjectorAsync.m are DIFFERENT
@@ -64,7 +78,7 @@ typedef NS_ENUM(int32_t, MIMachInjectorDlopenResultCode) {
 _Static_assert(offsetof(MIMachInjectorDlopenReport, resultCode) == 0x00, "report layout drifted from the loader shellcode");
 _Static_assert(offsetof(MIMachInjectorDlopenReport, handle) == 0x08, "report layout drifted from the loader shellcode");
 _Static_assert(offsetof(MIMachInjectorDlopenReport, errorMessage) == 0x10, "report layout drifted from the loader shellcode");
-_Static_assert(sizeof(((MIMachInjectorDlopenReport *)0)->errorMessage) == 0x100, "report layout drifted from the loader shellcode");
+_Static_assert(sizeof(((MIMachInjectorDlopenReport *)0)->errorMessage) == 0x800, "report layout drifted from the loader shellcode");
 
 #ifdef __cplusplus
 extern "C" {

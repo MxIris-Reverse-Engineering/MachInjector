@@ -130,9 +130,9 @@
  *   0x08    4       result_code       0=success, 1=dlopen fail, 2=pthread fail
  *   0x0C    4       (reserved)        Padding for alignment
  *   0x10    8       handle            dlopen() return value
- *   0x18    256     error_message     dlerror() string
+ *   0x18    2048    error_message     dlerror() string
  *
- *   Total notepad size: 280 bytes (0x118)
+ *   Total notepad size: 2072 bytes (0x818)
  *
  * =============================================================================
  * WHY PTHREAD_PORT IS SAVED BUT NOT USED
@@ -184,8 +184,8 @@
 .set NOTEPAD_RESULT_CODE,       0x08    // int32_t: 0=success, 1=dlopen fail, 2=pthread fail
 .set NOTEPAD_RESERVED,          0x0C    // int32_t: reserved/padding
 .set NOTEPAD_HANDLE,            0x10    // uint64_t: dlopen return value
-.set NOTEPAD_ERROR_MSG,         0x18    // char[256]: dlerror() string
-.set NOTEPAD_ERROR_SIZE,        0x100   // Maximum error message length (256 bytes)
+.set NOTEPAD_ERROR_MSG,         0x18    // char[2048]: dlerror() string
+.set NOTEPAD_ERROR_SIZE,        0x800   // Maximum error message length (2048 bytes)
 
 /*
  * =============================================================================

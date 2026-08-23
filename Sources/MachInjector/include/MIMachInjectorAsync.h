@@ -122,7 +122,7 @@
  *   0x10    8       handle            dlopen() return value (void*)
  *   0x18    256     error_message     dlerror() string if dlopen failed
  *
- *   Total size: 280 bytes
+ *   Total size: 2072 bytes
  *
  * =============================================================================
  * RESOURCE CLEANUP

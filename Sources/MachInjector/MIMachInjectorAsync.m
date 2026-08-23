@@ -260,9 +260,9 @@ static kern_return_t (*_thread_convert_thread_state)(
  * | 0x08   | 4    | result_code      | 0=success, 1=dlopen, 2=pthread         |
  * | 0x0C   | 4    | (reserved)       | padding for alignment                  |
  * | 0x10   | 8    | handle           | dlopen() return value                  |
- * | 0x18   | 256  | error_message    | dlerror() string                       |
+ * | 0x18   | 2048 | error_message    | dlerror() string                       |
  * +--------+------+------------------+----------------------------------------+
- * | Total  | 280  |                  |                                        |
+ * | Total  | 2072 |                  |                                        |
  * +--------+------+------------------+----------------------------------------+
  */
 // WARNING — `result_code` here and MIMachInjectorDlopenResultCode in
@@ -292,7 +292,7 @@ typedef struct {
     int32_t result_code;           // +0x08: MINotepadResultCode — see warning above
     int32_t reserved;              // +0x0C: Reserved/padding
     uint64_t handle;               // +0x10: dlopen() return value
-    char error_message[256];       // +0x18: Error message from dlerror()
+    char error_message[2048];      // +0x18: Error message from dlerror()
 } MINotepad;
 
 // =============================================================================
