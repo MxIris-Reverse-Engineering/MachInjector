@@ -1,6 +1,7 @@
 #import "MIMachInjector.h"
 
 #import "MIMachInjectorInternal.h"
+#import "MITargetSymbolResolver.h"
 #include <Cocoa/Cocoa.h>
 #include <mach/mach.h>
 #include <mach/mach_vm.h>
@@ -208,6 +209,11 @@ NSError *MIMachInjectorErrorForDlopenReport(const MIMachInjectorDlopenReport *re
     thread_state_flavor_t thread_flavor = ARM_THREAD_STATE64;
     mach_msg_type_number_t thread_flavor_count = ARM_THREAD_STATE64_COUNT;
     mach_msg_type_number_t machine_thread_flavor_count = ARM_THREAD_STATE64_COUNT;
+
+    // Declared here rather than at the point of use because the cleanup gotos
+    // above would otherwise jump over an object initialisation.
+    MITargetSymbolResolver *resolver = nil;
+    NSError *resolverError = nil;
 #endif
 
     // Validate input
@@ -370,11 +376,46 @@ NSError *MIMachInjectorErrorForDlopenReport(const MIMachInjectorDlopenReport *re
     }
     memcpy(local_shellcode, __shellcode_start, SHELLCODE_SIZE);
 
-    // Get function addresses (strip PAC signatures)
-    uint64_t pcfmt_address = (uint64_t)ptrauth_strip(dlsym(RTLD_DEFAULT, "pthread_create_from_mach_thread"), ptrauth_key_function_pointer);
-    uint64_t dlopen_address = (uint64_t)ptrauth_strip(dlsym(RTLD_DEFAULT, "dlopen"), ptrauth_key_function_pointer);
-    uint64_t sandbox_consume_address = (uint64_t)ptrauth_strip(dlsym(RTLD_DEFAULT, "sandbox_extension_consume"), ptrauth_key_function_pointer);
-    uint64_t dlerror_address = (uint64_t)ptrauth_strip(dlsym(RTLD_DEFAULT, "dlerror"), ptrauth_key_function_pointer);
+    // Resolve the addresses the shellcode will call — out of the target, not
+    // out of us.
+    //
+    // These four used to come from `dlsym(RTLD_DEFAULT, …)`, which silently
+    // assumes injector and target share a dyld shared cache. An iOS Simulator
+    // process does not, so the address handed over lands on unrelated code
+    // over there; that is what killed three SpringBoards.
+    //
+    // Where the assumption does hold, the old behaviour is kept as a fallback:
+    // a same-cache target whose symbol table cannot be read this way is one
+    // every previous release injected successfully via dlsym, and regressing
+    // that to buy strictness we do not need would be a poor trade. For a target
+    // on a different cache there is nothing to fall back to — our addresses are
+    // meaningless there — so an unresolved symbol has to fail the injection.
+    resolver = [MITargetSymbolResolver resolverForTask:task error:&resolverError];
+    BOOL targetSharesOurSharedCache = (resolver == nil) || !resolver.isSimulatorTarget;
+
+    uint64_t pcfmt_address = [resolver addressOfSymbol:@"pthread_create_from_mach_thread" inImageWithPath:@"libsystem_pthread.dylib" error:NULL];
+    uint64_t dlopen_address = [resolver addressOfSymbol:@"dlopen" inImageWithPath:@"libdyld.dylib" error:NULL];
+    uint64_t sandbox_consume_address = [resolver addressOfSymbol:@"sandbox_extension_consume" inImageWithPath:@"libsystem_sandbox.dylib" error:NULL];
+    uint64_t dlerror_address = [resolver addressOfSymbol:@"dlerror" inImageWithPath:@"libdyld.dylib" error:NULL];
+
+    if (targetSharesOurSharedCache) {
+        if (!pcfmt_address) pcfmt_address = (uint64_t)ptrauth_strip(dlsym(RTLD_DEFAULT, "pthread_create_from_mach_thread"), ptrauth_key_function_pointer);
+        if (!dlopen_address) dlopen_address = (uint64_t)ptrauth_strip(dlsym(RTLD_DEFAULT, "dlopen"), ptrauth_key_function_pointer);
+        if (!sandbox_consume_address) sandbox_consume_address = (uint64_t)ptrauth_strip(dlsym(RTLD_DEFAULT, "sandbox_extension_consume"), ptrauth_key_function_pointer);
+        if (!dlerror_address) dlerror_address = (uint64_t)ptrauth_strip(dlsym(RTLD_DEFAULT, "dlerror"), ptrauth_key_function_pointer);
+    } else if (!pcfmt_address || !dlopen_address) {
+        // dlerror and sandbox_extension_consume are not load-bearing: the
+        // shellcode tolerates a zero for either (no diagnostic text, no
+        // sandbox extension). Without pthread_create_from_mach_thread or
+        // dlopen there is nothing to run.
+        error = MIMachInjectorErrorMake(MIMachInjectorErrorTargetSymbolsUnresolvable,
+                                        @"could not resolve %@ inside pid %d%@",
+                                        pcfmt_address ? @"dlopen" : @"pthread_create_from_mach_thread",
+                                        pid,
+                                        resolverError ? [NSString stringWithFormat:@": %@", resolverError.localizedDescription] : @"");
+        goto cleanup;
+    }
+
     uint64_t report_address = (uint64_t)report;
 
     // Patch function addresses

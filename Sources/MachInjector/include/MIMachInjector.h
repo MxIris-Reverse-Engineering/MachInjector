@@ -138,6 +138,16 @@ typedef NS_ERROR_ENUM(MIMachInjectorErrorDomain, MIMachInjectorErrorCode) {
     /// faulted in. Re-sign the payload and check it with
     /// `codesign --verify --deep --strict`.
     MIMachInjectorErrorTargetTerminatedWhileLoading = 29,
+
+    /// The addresses the shellcode needs could not be resolved inside the
+    /// target.
+    ///
+    /// Only reported for a target that does not share this process's dyld
+    /// shared cache — an iOS Simulator process is the case this exists for.
+    /// Where injector and target do share a cache, an unresolvable symbol falls
+    /// back to the injector's own `dlsym`, which is what every release before
+    /// this used unconditionally.
+    MIMachInjectorErrorTargetSymbolsUnresolvable = 30,
 } NS_SWIFT_NAME(MachInjector.Error);
 
 NS_SWIFT_NAME(MachInjector)
