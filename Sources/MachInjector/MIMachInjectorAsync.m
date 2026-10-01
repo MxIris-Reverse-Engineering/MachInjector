@@ -147,9 +147,9 @@
 // MARK: - System Headers
 // =============================================================================
 
-#import <Cocoa/Cocoa.h>
+#import <Foundation/Foundation.h>
 #import <mach/mach.h>
-#import <mach/mach_vm.h>
+#import "MIMachVMCompat.h"
 #import <dlfcn.h>
 #import <ptrauth.h>
 #import <dispatch/dispatch.h>

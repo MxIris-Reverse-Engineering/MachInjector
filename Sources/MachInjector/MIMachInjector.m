@@ -2,15 +2,15 @@
 
 #import "MIMachInjectorInternal.h"
 #import "MITargetSymbolResolver.h"
-#include <Cocoa/Cocoa.h>
+#include <Foundation/Foundation.h>
 #include <mach/mach.h>
-#include <mach/mach_vm.h>
+#include "MIMachVMCompat.h"
 #include <dlfcn.h>
 #include <errno.h>
 #include <signal.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <bsm/libbsm.h>
+#include <mach/task_info.h>
 
 extern char *sandbox_extension_issue_file_to_process(const char *extension_class, const char *path, uint32_t flags, audit_token_t);
 

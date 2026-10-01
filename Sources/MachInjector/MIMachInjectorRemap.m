@@ -89,7 +89,7 @@
 #include <mach-o/getsect.h>
 #include <mach-o/loader.h>
 #include <mach/mach.h>
-#include <mach/mach_vm.h>
+#include "MIMachVMCompat.h"
 #include <mach/thread_status.h>
 #include <mach/vm_map.h>
 #include <os/log.h>

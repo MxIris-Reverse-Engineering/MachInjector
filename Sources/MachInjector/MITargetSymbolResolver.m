@@ -1,6 +1,6 @@
 #import "MITargetSymbolResolver.h"
 
-#include <mach/mach_vm.h>
+#include "MIMachVMCompat.h"
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
 #include <mach-o/dyld_images.h>
