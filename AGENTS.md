@@ -10,18 +10,23 @@ and link it from here.
 
 ## Project Overview
 
-Objective-C library for injecting a dylib into another process on macOS. Three distinct injection
+Objective-C library for injecting a dylib into another process. Three distinct injection
 paths, not three variations of one:
 
-| Class | Mechanism | Architectures |
-|---|---|---|
-| `MIMachInjector` | shellcode in the target calls `dlopen`; synchronous | arm64, arm64e, x86_64 |
-| `MIMachInjectorAsync` | same, but completion is event-driven (`MACH_SEND_DEAD`) | arm64, arm64e |
-| `MIMachInjectorRemap` | **never calls `dlopen`** — maps the payload's segments in and replays dyld's work by hand | arm64, arm64e only |
+| Class | Mechanism | macOS | iOS |
+|---|---|---|---|
+| `MIMachInjector` | shellcode in the target calls `dlopen`; synchronous | arm64, arm64e, x86_64 | arm64e |
+| `MIMachInjectorAsync` | same, but completion is event-driven (`MACH_SEND_DEAD`) | arm64, arm64e | arm64e |
+| `MIMachInjectorRemap` | **never calls `dlopen`** — maps the payload's segments in and replays dyld's work by hand | arm64, arm64e | ✗ compiled out |
 
 - **Library target**: `MachInjector` (SPM library product, source distribution)
 - **Swift tools version**: 5.9 — **`swift-testing` is unavailable**, tests use XCTest
-- **Platform**: macOS 10.15+
+- **Platforms**: macOS 10.15+, iOS 15.0+. **iOS has to be arm64e** and has no remap path — both
+  are under Hazards, with the reasoning in
+  [`Documentations/Evolutions/0003-ios-support.md`](Documentations/Evolutions/0003-ios-support.md).
+  Tests stay macOS-only: they compile a dylib fixture with `clang` at run time, which iOS has
+  neither the binary nor the permission for, so the iOS regression is "the arm64e static library
+  still builds" and nothing more.
 - **Dependencies**: none
 
 **Start here for how any of it works**:
@@ -112,6 +117,22 @@ move them back.
 
 Things that have actually gone wrong here, in rough order of how much time they cost:
 
+- **Two iOS constraints are invisible from a macOS build, which is what makes them expensive.**
+  (1) iOS's plain `arm64` target **rejects** `paciza` / `pacibsp` as requiring pointer
+  authentication, while macOS's `arm64` target **accepts** them — so the shellcode builds at either
+  architecture on macOS and fails on iOS at `arm64`. iOS must be built arm64e. (2) The remap path
+  compiles on iOS and cannot work there: `Loader/build_loader.sh` runs `clang` with neither
+  `-target` nor `-isysroot`, so the embedded loader is always a macOS dylib. It is therefore gated
+  out — `#if defined(__arm64__) && TARGET_OS_OSX` in `MIMachInjectorRemap.m` — and calls return
+  `MIMachInjectorRemapErrorPlatformUnsupported` (18). Do not lift that gate without teaching the
+  script a target and re-verifying PAC and chained fixups on iOS slot by slot.
+- **`mach/mach_vm.h` exists on iOS and contains nothing but `#error mach_vm.h unsupported.`**
+  So a `__has_include` probe reports success and the build then fails *inside* the header. Only a
+  `TARGET_OS_*` test distinguishes the platforms, which is what `MIMachVMCompat.h` does — do not
+  "harden" it into a `__has_include`. Every routine it declares is exported from the public
+  `usr/lib/libSystem.B.tbd`; the header is the only thing missing. The prototypes are copied
+  verbatim because `mach_vm_read` and `mach_vm_read_overwrite` take `vm_map_read_t`, not
+  `vm_map_t` — both are `mach_port_t` typedefs, so swapping them compiles and then misbehaves.
 - **A crash that looks like a PAC bug usually is not one.** If a remapped payload dies on a pointer
   whose value is legitimate but whose authentication bits are wrong, read
   [`Documentations/Internal/InjectorRuntimeDirtyState.md`](Documentations/Internal/InjectorRuntimeDirtyState.md)

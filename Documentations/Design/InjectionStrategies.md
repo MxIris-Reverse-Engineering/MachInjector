@@ -245,6 +245,8 @@ SIP 开着则直接忽略，plist 写了也没用。
 
 ## 平台支持
 
+### 架构
+
 | | arm64e / arm64 | x86_64 |
 |---|---|---|
 | `MIMachInjector` | 完整（含沙盒扩展、PAC 线程状态转换） | 支持，**无沙盒扩展**（shellcode 里没有该 patch 点） |
@@ -253,6 +255,32 @@ SIP 开着则直接忽略，plist 写了也没用。
 
 arm64 与 arm64e 的差异在于后者需要 PAC 处理；两者共用同一份 shellcode 源码，
 由条件编译和运行时判断分流。
+
+### 操作系统
+
+| | macOS | iOS |
+|---|---|---|
+| `MIMachInjector` | arm64、arm64e、x86_64 | **仅 arm64e** |
+| `MIMachInjectorAsync` | arm64、arm64e | **仅 arm64e** |
+| `MIMachInjectorRemap` | arm64、arm64e | ✗ 条件编译排除 |
+
+**iOS 必须编 arm64e。** shellcode 用 `paciza` 签入口地址、`pacibsp` 签栈帧，
+而 **iOS 的 arm64 target 拒绝这两条指令**（需要 pauth），**macOS 的 arm64 target 却接受**。
+所以这个约束在只构建 macOS 时永远不暴露 —— 它只在 iOS 的第一次 arm64 构建时撞上来。
+
+**`MIMachInjectorRemap` 在 iOS 上条件编译排除**，调用一律返回
+`MIMachInjectorRemapErrorPlatformUnsupported`（18）。原因不在架构而在那份内嵌 loader：
+`Loader/build_loader.sh` 调 `clang` 时既不带 `-target` 也不带 `-isysroot`，产物因此恒为
+**macOS** dylib，map 进 iOS 目标是平台不匹配、内核会在 page-in 时杀掉。
+条件编译同时把约 217 KB 的 loader 字节从每个 iOS 产物里拿掉
+（实测 `MIMachInjectorRemap.o`：macOS 221,272 字节 → iOS 4,448 字节）。
+要让它在 iOS 上可用，先得教 `build_loader.sh` 带目标，并在 iOS 上逐槽重验 PAC 与
+chained fixups —— 那是另一件事，见
+[`Evolutions/0003-ios-support.md`](../Evolutions/0003-ios-support.md)。
+
+**iOS 上调用方需要的是沙盒逃逸 + `task_for_pid-allow`**，而**不需要** macOS 那种特权 daemon：
+未沙盒化的 iOS App 自己就能拿到别人的 task port。三条 entitlement 与支撑这个结论的实测
+数据同样在 0003 里。
 
 ## 相关代码
 

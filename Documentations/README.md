@@ -1,6 +1,6 @@
 # MachInjector 文档索引
 
-macOS 代码注入库。三条互不相同的注入路径：两条在目标进程里调用 `dlopen`，
+代码注入库（macOS 与 iOS）。三条互不相同的注入路径：两条在目标进程里调用 `dlopen`，
 一条完全绕开 `dlopen`（`mach_vm_remap` + 手工复刻 dyld 的工作）。
 
 **新增或重命名任何文档都必须同步更新这份索引。**
@@ -57,4 +57,4 @@ macOS 代码注入库。三条互不相同的注入路径：两条在目标进�
 |---|---|---|
 | [0001](Evolutions/0001-restore-payload-writable-segments-before-fixups.md) | Remap 前把 payload 可写段恢复为文件原始内容 | Implemented |
 | [0002](Evolutions/0002-classify-and-publish-injection-error-codes.md) | 把注入失败分类成可判定的错误码，并公开三个 domain 的枚举 | Implemented |
-| [draft](Evolutions/draft-ios-support.md) | 支持 iOS：补一个 `mach_vm` 兼容头，并把 remap 路径按平台关掉 | Draft |
+| [0003](Evolutions/0003-ios-support.md) | 支持 iOS：补一个 `mach_vm` 兼容头，并把 remap 路径按平台关掉 | Implemented |

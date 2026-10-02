@@ -157,7 +157,11 @@
  * PLATFORM SUPPORT
  * =============================================================================
  *
- * - macOS 11.0 or later
+ * - macOS 11.0 or later. **macOS only** — the library builds for iOS, but this
+ *   path does not: the embedded loader is produced without `-target` or
+ *   `-isysroot` and is therefore always a macOS dylib. Off macOS every call
+ *   fails with `MIMachInjectorRemapErrorPlatformUnsupported`; use
+ *   `MIMachInjector` there.
  * - Apple Silicon (arm64 / arm64e). No x86_64 support — the payload must
  *   also be arm64e when injecting arm64e daemons like sharingd.
  * - SIP disabled + task_for_pid permission (root helper, com.apple.system-task-ports.debug, etc.)
@@ -296,6 +300,23 @@ typedef NS_ERROR_ENUM(MIMachInjectorRemapErrorDomain, MIMachInjectorRemapErrorCo
     /// supports x86_64. Appended at 17 because this path numbers its own
     /// failures independently of the two dlopen paths.
     MIMachInjectorRemapErrorArchitectureUnsupported = 17,
+
+    /// The architecture is right but the platform is not: this is an arm64e
+    /// build for something other than macOS.
+    ///
+    /// The embedded loader comes out of `Loader/build_loader.sh`, which invokes
+    /// `clang` with neither `-target` nor `-isysroot` — so the bytes in
+    /// `loader_arm64_remap_dylib.h` are a **macOS** dylib whatever the library
+    /// is built for. Mapping them into an iOS target would be a platform
+    /// mismatch the kernel kills on page-in, so the whole implementation is
+    /// compiled out off macOS and every call lands here instead.
+    ///
+    /// Distinct from `17` on purpose: `17` means "use `MIMachInjector`, it
+    /// supports x86_64", while this one means "the remap path has no iOS
+    /// loader yet". Use `MIMachInjector`, whose dlopen path is supported on
+    /// iOS. Appended at 18 past the highest published value, per this header's
+    /// rule that nothing is ever renumbered.
+    MIMachInjectorRemapErrorPlatformUnsupported = 18,
 } NS_SWIFT_NAME(MachInjectorRemap.Error);
 
 /// Struct handed to the payload entry point in the target process. All fields

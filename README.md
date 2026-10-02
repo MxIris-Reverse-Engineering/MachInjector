@@ -1,6 +1,6 @@
 # MachInjector
 
-A Swift Package for injecting a dylib into a running macOS process via `task_for_pid` and remote shellcode.
+A Swift Package for injecting a dylib into a running process via `task_for_pid` and remote shellcode. macOS and iOS.
 
 Distilled from [yabai](https://github.com/koekeishiya/yabai)'s injection code and extended with an asynchronous, event-driven implementation for ARM64.
 
@@ -12,7 +12,7 @@ Distilled from [yabai](https://github.com/koekeishiya/yabai)'s injection code an
 - Three injection paths under a unified API surface
   - **Synchronous** (`MachInjector`) — works on ARM64 and x86_64; completion is polled via a magic marker
   - **Asynchronous V2** (`MachInjectorAsync`) — ARM64 only; event-driven completion via `dispatch_source` on `MACH_SEND_DEAD`
-  - **mach\_vm\_remap** (`MachInjectorRemap`) — arm64 / arm64e only; bypasses `dlopen` inside the target by mapping the payload's segments straight into the target's VM space. Necessary for strict seatbelt daemons (sharingd, rapportd, and similar) that deny `file-map-executable` for any path outside a hard-coded system whitelist.
+  - **mach\_vm\_remap** (`MachInjectorRemap`) — arm64 / arm64e and **macOS only**; bypasses `dlopen` inside the target by mapping the payload's segments straight into the target's VM space. Necessary for strict seatbelt daemons (sharingd, rapportd, and similar) that deny `file-map-executable` for any path outside a hard-coded system whitelist.
 - Rosetta 2 / translated x86_64 targets supported by the ARM64 shellcode (via `liboah.dylib` probing)
 - Detailed `NSError` reporting, including the remote `dlerror()` string when `dlopen()` fails in the target process, and detection of a target that was killed mid-load rather than reporting a false success
 - Swift `async/await` import for the asynchronous API
@@ -20,13 +20,40 @@ Distilled from [yabai](https://github.com/koekeishiya/yabai)'s injection code an
 
 ## Requirements
 
-- macOS 10.15 or later
+- macOS 10.15 or later, or iOS 15.0 or later
 - Swift 5.9+ / Xcode 15+
 - ARM64 (Apple Silicon) for `MachInjectorAsync`; ARM64 or x86_64 for `MachInjector`
 - `task_for_pid` privilege on the injecting process. In practice this means one of:
   - Running as root
   - Holding `com.apple.security.cs.debugger` (and being properly code-signed)
   - Delegating injection to a privileged helper (see the [example app](#example-app))
+
+### Platform support
+
+|  | macOS | iOS |
+|---|---|---|
+| `MachInjector` (sync dlopen) | arm64, arm64e, x86_64 | **arm64e only** |
+| `MachInjectorAsync` (async dlopen) | arm64, arm64e | **arm64e only** |
+| `MachInjectorRemap` | arm64, arm64e | ✗ not available |
+
+**iOS builds must be arm64e.** The shellcode signs its entry address with
+`paciza` and its frame with `pacibsp`, and iOS's plain `arm64` target rejects
+both as requiring pointer authentication — while macOS's `arm64` target accepts
+them. So the constraint never shows up in a macOS-only build, and the first
+`arm64` iOS build walks straight into it.
+
+**`MachInjectorRemap` is macOS-only.** It is compiled out elsewhere and every
+call returns `MIMachInjectorRemapErrorPlatformUnsupported` (18). The path embeds
+a prebuilt loader dylib, and `Loader/build_loader.sh` produces it with neither
+`-target` nor `-isysroot` — so those bytes are always a macOS dylib, which the
+kernel would kill on page-in inside an iOS target. Compiling it out also keeps
+~217 KB of loader bytes out of every iOS binary. Use `MachInjector` on iOS.
+
+**What the injecting app needs on iOS** is a sandbox escape plus
+`task_for_pid-allow`; it does **not** need a privileged helper the way macOS
+does, because an unsandboxed iOS app can take task ports itself. The three
+entitlements, and the measurements behind that claim, are in
+[`Documentations/Evolutions/0003-ios-support.md`](Documentations/Evolutions/0003-ios-support.md).
 
 ### Library validation
 

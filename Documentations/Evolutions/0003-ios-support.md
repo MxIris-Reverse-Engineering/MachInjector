@@ -1,13 +1,13 @@
-# Draft - 支持 iOS：补一个 `mach_vm` 兼容头，并把 remap 路径按平台关掉
+# 0003 - 支持 iOS：补一个 `mach_vm` 兼容头，并把 remap 路径按平台关掉
 
-- **状态**: Draft
+- **状态**: Implemented
 - **作者**: JH
 - **创建日期**: 2026-10-02
 - **最后更新**: 2026-10-02
 - **所属愿景**: 无
 - **关联提案**: 无（下游触发方是 RuntimeViewer 的「越狱版 RV iOS：枚举设备进程并注入」）
 - **实现分支 / PR**: `feature/ios-support`
-- **配套文档**: 待定 —— 落地时登记实现说明的链接
+- **配套文档**: 无单独成文 —— 三条「代码看不出来」的结论写进了 `AGENTS.md` 的 Hazards（两条 iOS 陷阱）与 `Documentations/Design/InjectionStrategies.md` 的「平台支持 / 操作系统」一节，判定理由见决策日志末行
 
 ## 摘要
 
@@ -352,13 +352,28 @@ translation unit，SwiftPM 不需要知道这件事（不用 `exclude:`，那个
    `lipo -info` 报 `arm64e`，`LC_BUILD_VERSION` 的 `platform` 为 2（PLATFORM_IOS，非模拟器）。
 4. **文档三处同批次更新**（README 平台矩阵、AGENTS.md 的 Overview 与 Hazards），并把本提案
    登记进 `Documentations/README.md` 与 `Documentations/Evolutions/README.md`。
-5. **合入 `main` 时分配编号**（`draft-ios-support.md` → `NNNN-ios-support.md`，标题行与索引同步），
+5. **合入 `main` 时分配编号**（`draft-ios-support.md` → `0003-ios-support.md`，标题行与索引同步），
    状态改 `Implemented`，发一个 minor tag。下游 RuntimeViewer 要抬 pin 才能用。
 6. **收尾判断**（结论写进决策日志，不允许沉默跳过）：
    - 配套文档：倾向**要写实现说明** —— 两个 SDK 头缺失陷阱、`vm_map_read_t` 的类型差异、
      arm64e 约束在 macOS 上不暴露这三条，都是「代码本身看不出来、下次维护会踩」的。
      落地时判定是单独成文还是并进 `AGENTS.md` 的 Hazards。
    - 新术语：无。`arm64e` / `pauth` / `MIG` / entitlement 名都是既有术语，不是本项目自造。
+
+
+## 落地实测结果
+
+全部在 macOS 27.0 / Xcode 27 / iPhoneOS27.0.sdk 上测的。
+
+| 验证项 | 结果 |
+|---|---|
+| macOS `swift build` 无回归 | ✅ exit 0 |
+| macOS 测试无回归 | ✅ exit 0，28 个全过（含 remap 的 10 个 `MITargetSymbolResolverTests`） |
+| iOS arm64e 全部源文件编译 | ✅ 7 个源文件零错误（只有一条 macOS 上同样存在的既有 `-Wcomment` 警告） |
+| 产物平台 | ✅ `platform 2`（PLATFORM_IOS，非模拟器）/ `minos 15.0` / `sdk 27.0`，`lipo -info` 报 `arm64e` |
+| remap 的 loader 字节不进 iOS 产物 | ✅ `MIMachInjectorRemap.o`：macOS **221,272** 字节 → iOS **4,448** 字节；`nm` 在 iOS 产物里找不到任何 `loader_arm64_remap` / `remap_stage1` 符号 |
+
+每个 iOS 产物因此省掉约 **217 KB**。
 
 ## 决策日志
 
@@ -373,3 +388,7 @@ translation unit，SwiftPM 不需要知道这件事（不用 `exclude:`，那个
 | 2026-10-02 | iOS 下限定 15，依据是实测 `minos` 与消费方下限 | 代码不使用任何有版本门槛的 API（`mach_vm_*` / `thread_*` 是 MIG 生成的，头里无可用性标注），所以下限不由代码决定。15 是实测产物的 `minos`，且低于全部已知消费方（RuntimeViewer 的 iOS 侧是 18）。将来降低是纯新增。 |
 | 2026-10-02 | 不加 iOS 测试目标，iOS 侧回归只有「能编出 arm64e 静态库」 | 现有测试在运行时用 clang 编译 dylib fixture 并做跨进程注入，iOS 上既没有 clang 也没有权限。把这一条写进落地步骤的验证标准，而不是假装能做成测试。 |
 | 2026-10-02 | 记下一个排查陷阱 | 一次 uid 501 注入失败被误判成权限问题，实际是目标进程已退出。是对照组（同目标换 root）报出**不同错误码**才暴露的。按 0002 的编号，`3` 是 `task_for_pid` 失败、`28` 是目标端口无效。判定权限结论前必须先确认目标存活。 |
+| 2026-10-02 | **偏离提案**：remap 改为复用既有的 stub 两臂，而非「iOS 上类不存在」 | 提案原写「`MIMachInjectorRemap.h` 全文包进 `#if TARGET_OS_OSX`，iOS 上这个类不存在」。实现时发现 `MIMachInjectorRemap.m` **本来就**是两臂结构 —— `#ifdef __arm64__` 是真实现、`#else` 是返回 `ArchitectureUnsupported` 的 stub（给 x86_64 用）。于是改为把那个条件收紧成 `#if defined(__arm64__) && TARGET_OS_OSX`，让 iOS 落进同一个 stub 臂。理由：**这个库自己已经为 x86_64 回答过同一个问题**，选的是「保留符号、明确报错」而不是「符号不存在」；跨平台调用方只需要一种形状，不必为 iOS 写 `#if`。提案关心的两个结果都没丢 —— 没有运行时才失败的路径（stub 立即报错），loader 字节也不进 iOS 产物（它在 arm64 那一臂里）。 |
+| 2026-10-02 | 新增错误码 18 `PlatformUnsupported`，不复用 17 | 17 `ArchitectureUnsupported` 的含义是「这台机器不是 arm64,去用 `MIMachInjector`,它支持 x86_64」。在 arm64e 的 iOS 上架构是对的、平台不对,补救也不同（「remap 还没有 iOS loader」），拿 17 糊过去是错的错误信息。按本 header 既定规则追加在最高值之后,不重编号。 |
+| 2026-10-02 | `MIMachInjectorRemapRestore.c` 与 `MIMachInjectorRemapInternal.h` 不加门 | 它们是平台中立的纯字节操作（段恢复），在 iOS 上编得过也无害，而真正的大块（11167 行 loader 字节数组）已经在 `__arm64__ && TARGET_OS_OSX` 那一臂里。给它们加门需要连测试一起处理，换来的体积收益接近零。 |
+| 2026-10-02 | 收尾判断：不单独写实现说明；无新术语 | 三条「代码本身看不出来」的结论（iOS 的 `mach_vm.h` 是 `#error` 所以不能用 `__has_include` 探测、`vm_map_read_t` 的类型差异、arm64e 约束在 macOS 上不暴露）都是**维护时会撞上**的点，所以放进 `AGENTS.md` 的 Hazards 与 `InjectionStrategies.md` 的平台支持节 —— 那两处正是下一个人动这块代码前会读的地方，单独成文反而更容易被绕过。新术语：无，`arm64e` / `pauth` / `MIG` / entitlement 名都是既有术语。 |

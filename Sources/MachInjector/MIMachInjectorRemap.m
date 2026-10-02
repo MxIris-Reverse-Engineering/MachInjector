@@ -63,21 +63,38 @@
  *                         — the 13-step recipe wiring all of the above together
  *
  * =============================================================================
- * ARCHITECTURE GATE
+ * ARCHITECTURE AND PLATFORM GATE
  * =============================================================================
  *
  * The implementation depends on arm64 thread-state types (arm_thread_state64_t,
  * ARM_THREAD_STATE64) and the arm64-only remap loader dylib, so gate the whole
  * real implementation on __arm64__ and provide a "arm64-only" stub for the
  * x86_64 slices SPM otherwise compiles. Same technique MIMachInjectorAsync uses.
+ *
+ * The gate also requires macOS, which the architecture test alone does not
+ * cover: an arm64e iOS build passes __arm64__ and would compile every line
+ * below, including the embedded loader. But Loader/build_loader.sh runs clang
+ * with neither -target nor -isysroot, so loader_arm64_remap_dylib.h always
+ * holds a *macOS* dylib — mapping it into an iOS target is a platform mismatch
+ * the kernel kills on page-in. A path that can only fail is better not
+ * compiled: the stub reports it immediately, and the 11k lines of loader bytes
+ * stay out of every iOS binary.
+ *
+ * Teaching build_loader.sh to emit an iOS loader is the way to lift this, and
+ * is deliberately a separate piece of work — the remap path is the one that
+ * depends on PAC signing and chained-fixup layout slot by slot, so it needs its
+ * own verification on each platform it claims.
  * =============================================================================
  */
 
 #import "MIMachInjectorRemap.h"
 
-// Real implementation is arm64-only (see ARCHITECTURE GATE in top-of-file
-// docblock). x86_64 slice falls through to a stub returning arm64-only error.
-#ifdef __arm64__
+#include <TargetConditionals.h>
+
+// Real implementation is arm64-only and macOS-only (see ARCHITECTURE AND
+// PLATFORM GATE in top-of-file docblock). Every other slice falls through to a
+// stub that reports which of the two requirements it failed.
+#if defined(__arm64__) && TARGET_OS_OSX
 
 #include <dlfcn.h>
 #include <errno.h>
@@ -1528,12 +1545,23 @@ static int ParseChainedFixups(const MIRemapPayloadFileMapping *mapping,
 
 @end
 
-#else // !__arm64__
+#else // !(defined(__arm64__) && TARGET_OS_OSX)
 
 // -----------------------------------------------------------------------------
-// x86_64 stub — MIMachInjectorRemap requires the arm64 thread-state ABI and
-// the arm64-only remap loader dylib. Provide symbols so linking succeeds; any
-// call fails with an explicit "arm64-only" error.
+// Stub for every slice the real implementation is gated out of. It provides the
+// symbols so linking succeeds, and reports *which* requirement was not met —
+// the two have different remedies, and a caller that cannot tell them apart
+// cannot act on either.
+//
+//   - Not arm64: the arm64 thread-state ABI and the arm64 loader dylib have no
+//     x86_64 equivalent. MIMachInjector supports x86_64.
+//   - Not macOS: the architecture is fine, but the embedded loader is a macOS
+//     dylib (see the gate docblock). MIMachInjector's dlopen path works on iOS.
+//
+// Deliberately a stub rather than compiling the class out of the header
+// entirely: this library already answered that question for x86_64 by keeping
+// the symbol and failing explicitly, and one shape across platforms beats
+// making cross-platform callers write #if around the call.
 // -----------------------------------------------------------------------------
 
 NSErrorDomain const MIMachInjectorRemapErrorDomain = @"MIMachInjectorRemapErrorDomain";
@@ -1546,15 +1574,20 @@ NSErrorDomain const MIMachInjectorRemapErrorDomain = @"MIMachInjectorRemapErrorD
               error:(NSError * _Nullable __autoreleasing * _Nullable)error {
     (void)pid; (void)payloadPath; (void)entrySymbol;
     if (error) {
+#if !defined(__arm64__)
+        MIMachInjectorRemapErrorCode code = MIMachInjectorRemapErrorArchitectureUnsupported;
+        NSString *description = @"MIMachInjectorRemap is only available on arm64 / arm64e.";
+#else
+        MIMachInjectorRemapErrorCode code = MIMachInjectorRemapErrorPlatformUnsupported;
+        NSString *description = @"MIMachInjectorRemap is only available on macOS: its embedded loader is a macOS dylib. Use MIMachInjector instead.";
+#endif
         *error = [NSError errorWithDomain:MIMachInjectorRemapErrorDomain
-                                     code:MIMachInjectorRemapErrorArchitectureUnsupported
-                                 userInfo:@{
-            NSLocalizedDescriptionKey: @"MIMachInjectorRemap is only available on arm64 / arm64e."
-        }];
+                                     code:code
+                                 userInfo:@{ NSLocalizedDescriptionKey: description }];
     }
     return NO;
 }
 
 @end
 
-#endif // __arm64__
+#endif // defined(__arm64__) && TARGET_OS_OSX
