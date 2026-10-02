@@ -24,6 +24,27 @@
 
 #ifdef __arm64__
 
+// The shellcode signs its entry address with `paciza` and its frame with
+// `pacibsp` / `retab`, and an assembler only accepts those when pointer
+// authentication is in the target's feature set.
+//
+// macOS never needs this said: its arm64 baseline is armv8.3, because every
+// Mac that runs arm64 code has PAC hardware. iOS's arm64 baseline has to cover
+// A7 through A11, which do not, so `-target arm64-apple-ios` rejects all three
+// instructions — and a consumer *will* ask for that slice even when it only
+// intends to ship arm64e: Xcode's `iOSPackagesShouldBuildARM64e` *adds* arm64e
+// to a package's architectures rather than replacing arm64, so the two are
+// built side by side and the arm64 one failing fails the whole build.
+//
+// Declaring the extension makes that slice assemble. It stays correct rather
+// than merely compiling: pointer-authentication instructions are defined to
+// behave as no-ops where the feature is absent, so `paciza` leaves the pointer
+// unsigned and `retab` returns like `ret` — self-consistent, which is what the
+// arm64e path signs for explicitly. iOS injection still requires arm64e (see
+// the platform matrix in README.md); this only stops the unused slice from
+// breaking builds.
+    .arch_extension pauth
+
 .section __DATA, __data
 
 // Export symbols for C code to reference
